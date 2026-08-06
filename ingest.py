@@ -24,7 +24,9 @@ import pandas as pd
 import requests
 
 BASE = "https://data.binance.vision/data/futures/um/daily"
-ROOT = os.path.expanduser("~/crypto-quant-lab/scalper")
+# project root = the folder this file lives in, so data/ is found wherever the
+# repo is cloned (override with SCALPER_ROOT if you keep data elsewhere)
+ROOT = os.environ.get("SCALPER_ROOT") or os.path.dirname(os.path.abspath(__file__))
 MINUTE_DIR = os.path.join(ROOT, "data", "minute")
 
 # a trade this large (in USD) is treated as institutional / whale flow
