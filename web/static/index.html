@@ -1,0 +1,319 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ASTRA Terminal — AI Crypto Trading Intelligence</title>
+<link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+
+<header>
+  <div class="brand">
+    <span class="mark">AI</span>
+    <div>
+      <h1>ASTRA <span class="thin">Terminal</span></h1>
+      <p class="tag">Live AI analysis · order flow · whale tracking</p>
+    </div>
+  </div>
+  <nav class="nav">
+    <a class="ghost navlink" href="/report">Performance</a>
+    <button class="ghost" id="open-glossary">Help</button>
+    <div class="live-badge"><span class="dot"></span> LIVE</div>
+  </nav>
+</header>
+
+<div class="ticker" id="ticker"></div>
+
+<div class="toolbar">
+  <div class="ctl">
+    <span class="ctl-label">Coin</span>
+    <select id="symbol"></select>
+  </div>
+  <div class="ctl">
+    <span class="ctl-label">Chart timeframe</span>
+    <div class="tf-row" id="tf-row">
+      <button class="tf" data-tf="1">1m</button>
+      <button class="tf" data-tf="5">5m</button>
+      <button class="tf active" data-tf="15">15m</button>
+      <button class="tf" data-tf="60">1H</button>
+      <button class="tf" data-tf="240">4H</button>
+    </div>
+  </div>
+  <div class="spacer"></div>
+  <button class="ghost" id="open-studies">⚙ Indicators</button>
+  <button id="refresh" title="Refresh">↻</button>
+</div>
+
+<main>
+  <div id="status" class="status">
+    <div class="spinner"></div>
+    <p id="status-text">Loading live market data…</p>
+  </div>
+
+  <div id="app" hidden>
+
+    <!-- ============ TOP METRICS ============ -->
+    <section class="metrics">
+      <div class="metric accent">
+        <div class="m-label">Forecast reliability</div>
+        <div class="m-value" id="m-reliability">—</div>
+        <div class="m-note">of our range forecasts landed exactly where we said
+          they would, across 17,894 live tests</div>
+      </div>
+      <div class="metric">
+        <div class="m-label">Edge over industry standard</div>
+        <div class="m-value" id="m-edge">—</div>
+        <div class="m-note">more accurate than the benchmark model used across
+          the industry</div>
+      </div>
+      <div class="metric">
+        <div class="m-label">Consistency</div>
+        <div class="m-value" id="m-weeks">—</div>
+        <div class="m-note">of all weeks tested, our model stayed ahead of that
+          benchmark</div>
+      </div>
+      <div class="metric">
+        <div class="m-label">Data depth</div>
+        <div class="m-value" id="m-data">—</div>
+        <div class="m-note">days of tick-by-tick order flow behind every
+          forecast on this screen</div>
+      </div>
+    </section>
+
+    <!-- ============ THE CALL (rule engine · timeframe-driven) ============ -->
+    <section class="card re-neutral" id="rule-card">
+      <div class="card-head">
+        <div>
+          <h2>AI read
+            <span class="re-tag" id="re-tag">AI · live</span></h2>
+          <p class="sub">Our AI reads every indicator live from the order flow and
+            marks where to enter, take profit and cut the loss — for the
+            <b>chart timeframe</b> you pick above.</p>
+        </div>
+        <div class="re-head-right">
+          <div class="re-verdict" id="re-verdict">—</div>
+          <div class="re-live" id="re-live"><i></i><span id="re-live-text">watching…</span></div>
+        </div>
+      </div>
+
+      <div class="re-top">
+        <div class="re-levels">
+          <div class="re-lvl"><span>Entry</span><b id="re-entry">—</b></div>
+          <div class="re-lvl re-tp"><span>Take profit</span>
+            <b id="re-take">—</b><i id="re-take-x"></i></div>
+          <div class="re-lvl re-sl"><span>Stop loss</span>
+            <b id="re-stop">—</b><i id="re-stop-x"></i></div>
+          <div class="re-lvl"><span>Reward : Risk</span><b id="re-rr">—</b></div>
+        </div>
+        <div class="re-meta">
+          <div class="re-meter"><span>Confluence</span>
+            <div class="re-bar"><i id="re-score-fill"></i></div>
+            <b id="re-score">—</b></div>
+          <div class="re-stat"><span>Confidence</span><b id="re-conf">—</b></div>
+          <div class="re-stat"><span>Trend (ADX)</span><b id="re-adx">—</b></div>
+          <div class="re-stat"><span>Agreement</span><b id="re-agree">—</b></div>
+        </div>
+      </div>
+
+      <p class="re-narr" id="re-narr">—</p>
+
+      <div class="re-fams" id="re-fams"></div>
+
+      <details class="re-votes-wrap">
+        <summary>Show every indicator vote (<span id="re-votes-n">0</span>)</summary>
+        <div class="re-votes" id="re-votes"></div>
+      </details>
+    </section>
+
+    <!-- ============ CHART ============ -->
+    <section class="chart-card">
+      <div class="chart-head">
+        <div class="ch-left">
+          <span class="ch-sym" id="ch-sym">BTCUSDT</span>
+          <span class="ch-tf" id="ch-tf">15m</span>
+          <span class="ch-ohlc" id="ch-ohlc"></span>
+        </div>
+        <div class="ch-right">
+          <div class="legend" id="chart-legend"></div>
+          <button class="chart-ind-btn" id="chart-ind-btn">＋ Indicators</button>
+        </div>
+      </div>
+      <div class="quick-bar" id="quick-bar"></div>
+      <div id="chart-main" class="pane main"></div>
+      <div class="sub-panes" id="sub-panes"></div>
+    </section>
+
+    <!-- ============ MOVE SIZE ============ -->
+    <section class="card">
+      <div class="card-head">
+        <div>
+          <h2>How big will the move be?</h2>
+          <p class="sub">Where price could realistically end up, and how often
+            each outcome happens.</p>
+        </div>
+        <div class="verified-chip">✓ Accurate within 0.8% on 17,894 past forecasts</div>
+      </div>
+      <div class="ladder" id="ladder"></div>
+      <div class="ladder-foot">
+        <div class="lf-item">
+          <span class="lf-lab">Most likely move</span>
+          <span class="lf-val" id="lf-typical">—</span>
+        </div>
+        <div class="lf-item">
+          <span class="lf-lab">Safe stop-loss distance</span>
+          <span class="lf-val" id="lf-stop">—</span>
+          <span class="lf-note">Only 1 in 10 moves goes this far</span>
+        </div>
+        <div class="lf-item">
+          <span class="lf-lab">Realistic take-profit</span>
+          <span class="lf-val" id="lf-target">—</span>
+          <span class="lf-note">1 in 4 moves reaches this</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ MARKET PULSE ============ -->
+    <div class="grid two">
+      <section class="card">
+        <div class="card-head">
+          <div>
+            <h2>Who is in control right now</h2>
+            <p class="sub">Read from every single trade on the exchange, live.</p>
+          </div>
+        </div>
+        <div class="gauges" id="flow-gauges"></div>
+      </section>
+
+      <section class="card">
+        <div class="card-head">
+          <div>
+            <h2>What other traders are doing</h2>
+            <p class="sub">Retail crowd versus the biggest accounts on Binance.</p>
+          </div>
+        </div>
+        <div class="gauges" id="pos-gauges"></div>
+      </section>
+    </div>
+
+    <!-- ============ SIGNALS ============ -->
+    <section class="card">
+      <div class="card-head">
+        <div>
+          <h2>Indicator signals</h2>
+          <p class="sub">What each indicator is saying, and what happened last
+            time it looked like this.</p>
+        </div>
+      </div>
+      <div class="sig-cards" id="sig-cards"></div>
+    </section>
+
+    <!-- ============ TRACK RECORD ============ -->
+    <section class="card perf" id="performance">
+      <div class="card-head">
+        <div>
+          <h2>Why you can trust these numbers</h2>
+          <p class="sub">Every claim below was measured on live market data the
+            models had never seen before.</p>
+        </div>
+      </div>
+
+      <div class="perf-grid">
+        <div class="perf-stat hero-stat">
+          <div class="ps-value" id="ps-improve">—</div>
+          <div class="ps-label">more accurate than the industry-standard
+            forecasting model</div>
+        </div>
+        <div class="perf-stat">
+          <div class="ps-value" id="ps-cov">—</div>
+          <div class="ps-label">margin of error on our probability estimates,
+            tested on 17,894 forecasts</div>
+        </div>
+        <div class="perf-stat">
+          <div class="ps-value" id="ps-weeks">—</div>
+          <div class="ps-label">of weeks our model stayed ahead of the standard</div>
+        </div>
+        <div class="perf-stat">
+          <div class="ps-value" id="ps-data">—</div>
+          <div class="ps-label">days of tick-by-tick market history behind
+            every forecast</div>
+        </div>
+      </div>
+
+      <div class="charts-row">
+        <div class="chart-box">
+          <div class="cb-title">Our model vs the industry standard</div>
+          <svg id="bench-chart" viewBox="0 0 420 200"></svg>
+        </div>
+        <div class="chart-box">
+          <div class="cb-title">Week by week, are we still ahead?</div>
+          <svg id="skill-chart" viewBox="0 0 420 200"></svg>
+        </div>
+      </div>
+
+      <div class="charts-row">
+        <div class="chart-box wide">
+          <div class="cb-title">When we say "9 out of 10 times" — does it happen?</div>
+          <svg id="calib-chart" viewBox="0 0 880 220"></svg>
+          <p class="cb-note">The closer the gold line sits to the dotted line,
+            the more honest our probabilities are. Ours sits on top of it.</p>
+        </div>
+      </div>
+
+      <div class="pipeline">
+        <div class="pl-item"><b id="pl-features">131</b><span>AI signals per forecast</span></div>
+        <div class="pl-item"><b id="pl-studies">26</b><span>indicators tracked live</span></div>
+        <div class="pl-item"><b>460k</b><span>trades analysed per day</span></div>
+        <div class="pl-item"><b>Weekly</b><span>models retrained automatically</span></div>
+      </div>
+    </section>
+
+  </div>
+</main>
+
+<!-- studies drawer -->
+<div class="drawer-backdrop" id="studies-backdrop" hidden></div>
+<aside class="drawer left" id="studies" hidden>
+  <div class="drawer-head">
+    <h2>Indicators</h2>
+    <button class="ghost" id="close-studies">✕</button>
+  </div>
+  <div class="drawer-body">
+    <div class="std-group">
+      <h3>Your strategy <span class="badge-ai">PRO</span></h3>
+      <p class="std-note">The trend + volatility-expansion setup that drives the 4H
+        call: T3, Range Filter, Squeeze Momentum, Change-of-Vol, Chaikin Vol and DMI.</p>
+      <div id="std-pro"></div>
+    </div>
+    <div class="std-group"><h3>On the price chart</h3><div id="std-overlays"></div></div>
+    <div class="std-group"><h3>Oscillators</h3><div id="std-oscillators"></div></div>
+    <div class="std-group">
+      <h3>ASTRA exclusive <span class="badge-ai">AI</span></h3>
+      <p class="std-note">Built from raw trade data and futures positioning.
+        You will not find these on any standard charting site.</p>
+      <div id="std-desk"></div>
+    </div>
+  </div>
+</aside>
+
+<!-- help drawer -->
+<div class="drawer-backdrop" id="drawer-backdrop" hidden></div>
+<aside class="drawer" id="drawer" hidden>
+  <div class="drawer-head">
+    <h2>Help</h2>
+    <button class="ghost" id="close-glossary">✕</button>
+  </div>
+  <input type="search" id="glossary-search" placeholder="Search…">
+  <div class="drawer-body" id="glossary-body"></div>
+</aside>
+
+<div class="tooltip" id="tooltip" hidden></div>
+<footer><span id="footer-note">Binance USD-M futures · live market data</span></footer>
+
+<script src="/static/klinecharts.min.js"></script>
+<script src="/static/glossary.js"></script>
+<script src="/static/indicator_info.js"></script>
+<script src="/static/chart.js"></script>
+<script src="/static/app.js"></script>
+</body>
+</html>

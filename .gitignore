@@ -1,0 +1,23 @@
+# Python
+.venv/
+__pycache__/
+*.pyc
+
+# Runtime / logs
+*.log
+web/server.log
+
+# Market data & live records — too large for git; ship separately (see DEPLOY.md)
+data/
+
+# Runtime state & generated analysis outputs
+state/
+reports/
+
+# Local analysis scratch dumps (keep requirements.txt)
+*.txt
+!requirements.txt
+
+# OS
+.DS_Store
+Thumbs.db

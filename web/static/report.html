@@ -1,0 +1,247 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Performance — ASTRA Terminal</title>
+<link rel="stylesheet" href="/static/style.css">
+<style>
+  .rp-wrap { max-width: 1180px; margin: 0 auto; padding: 22px 20px 60px; }
+  .rp-nav { display: flex; align-items: center; gap: 16px; flex-wrap: wrap;
+    padding: 14px 0 18px; border-bottom: 1px solid var(--line); margin-bottom: 22px; }
+  .rp-nav a.back { color: var(--muted); text-decoration: none; font: 600 13px var(--sans); }
+  .rp-nav a.back:hover { color: var(--text); }
+  .rp-nav h1 { font: 800 19px var(--sans); margin: 0; }
+  .rp-nav .spacer { flex: 1; }
+  .rp-ctl { display: flex; align-items: center; gap: 8px; }
+  .rp-ctl label { font: 600 11px var(--sans); color: var(--muted); }
+  .rp-ctl select { background: var(--panel-2); color: var(--text);
+    border: 1px solid var(--line); border-radius: 7px; padding: 6px 9px; font: 500 12px var(--sans); }
+  .rp-tf { display: inline-flex; gap: 4px; }
+  .rp-tf button { background: var(--panel-2); color: var(--muted); border: 1px solid var(--line);
+    border-radius: 6px; padding: 6px 10px; font: 600 12px var(--sans); cursor: pointer; }
+  .rp-tf button.active { color: var(--text); border-color: var(--gold); }
+  .rp-static { background: var(--panel-2); color: var(--text); border: 1px solid var(--line);
+    border-radius: 7px; padding: 6px 12px; font: 600 12px var(--sans); display: inline-block; }
+
+  .rp-head { display: flex; align-items: baseline; gap: 12px; margin-bottom: 14px; flex-wrap: wrap; }
+  .rp-head h2 { font: 700 16px var(--sans); margin: 0; }
+  .rp-head .win-badge { font: 800 15px var(--sans); padding: 5px 13px; border-radius: 9px;
+    border: 1px solid var(--line); }
+  .rp-head .win-badge.good { color: var(--up); border-color: rgba(46,204,143,0.4); background: rgba(46,204,143,0.08); }
+  .rp-head .win-badge.bad  { color: var(--down); border-color: rgba(240,85,79,0.4); background: rgba(240,85,79,0.08); }
+  .rp-head .rp-window { font: 12px var(--mono); color: var(--faint); }
+
+  .rp-tiles { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin-bottom: 22px; }
+  @media (max-width: 820px) { .rp-tiles { grid-template-columns: repeat(2, 1fr); } }
+  .rp-tile { background: var(--panel-2); border: 1px solid var(--line); border-radius: 12px; padding: 14px 16px; }
+  .rp-tile .t-lab { font: 600 11px var(--sans); color: var(--muted); }
+  .rp-tile .t-val { font: 800 24px var(--mono); color: var(--text); margin-top: 5px; }
+  .rp-tile .t-sub { font: 11px var(--mono); color: var(--faint); margin-top: 3px; }
+  .rp-tile .t-val.up { color: var(--up); } .rp-tile .t-val.down { color: var(--down); }
+
+  .rp-card { background: var(--panel); border: 1px solid var(--line); border-radius: 14px;
+    padding: 18px 18px 20px; margin-bottom: 20px; }
+  .rp-card h3 { font: 700 14px var(--sans); margin: 0 0 12px; }
+  .rp-card .sub { font: 12px var(--sans); color: var(--muted); margin: -6px 0 12px; }
+
+  .eq-wrap { width: 100%; overflow-x: auto; }
+  svg.eq { display: block; width: 100%; height: 220px; }
+
+  table.rp-tbl { width: 100%; border-collapse: collapse; font: 12.5px var(--mono); }
+  table.rp-tbl th { text-align: right; font: 600 11px var(--sans); color: var(--muted);
+    padding: 7px 10px; border-bottom: 1px solid var(--line); position: sticky; top: 0; background: var(--panel); }
+  table.rp-tbl th:first-child, table.rp-tbl td:first-child { text-align: left; }
+  table.rp-tbl td { padding: 6px 10px; border-bottom: 1px solid var(--line-soft); color: var(--text); }
+  table.rp-tbl td.win { color: var(--up); } table.rp-tbl td.loss { color: var(--down); }
+  .tbl-scroll { max-height: 460px; overflow-y: auto; }
+  .rp-empty { color: var(--muted); font: 13px var(--sans); padding: 20px 0; text-align: center; }
+  .rp-status { color: var(--muted); font: 13px var(--sans); padding: 40px 0; text-align: center; }
+  .side-long { color: var(--up); } .side-short { color: var(--down); }
+</style>
+</head>
+<body>
+  <div class="rp-wrap">
+    <div class="rp-nav">
+      <a class="back" href="/">← Terminal</a>
+      <h1>Performance report</h1>
+      <div class="spacer"></div>
+      <div class="rp-ctl"><label>Symbol</label><select id="rp-symbol"></select></div>
+      <div class="rp-ctl"><label>Timeframe</label>
+        <span class="rp-static">4H — the strategy's edge</span>
+      </div>
+      <div class="rp-ctl"><label>Window</label>
+        <select id="rp-days">
+          <option value="90" selected>90 days</option>
+          <option value="180">180 days</option>
+          <option value="365">1 year</option>
+        </select>
+      </div>
+    </div>
+
+    <!-- ===== LIVE SIGNALS (act now, all coins) ===== -->
+    <div class="rp-card" id="sig-card">
+      <div class="rp-head">
+        <h2>Live signals — where to act now</h2>
+        <span class="rp-window">4H · all coins</span>
+      </div>
+      <p class="sub" style="margin:-4px 0 14px">The strategy's current read on every
+        coin. <b>SIGNAL NOW</b> = a fresh entry just fired this bar; otherwise it's the
+        standing lean with its levels. Entry, stop and target are from the pro
+        indicators — this is your daily action list.</p>
+      <div class="tbl-scroll">
+        <table class="rp-tbl">
+          <thead><tr><th>Coin</th><th>Bias</th><th>Status</th><th>Entry</th><th>Stop</th>
+            <th>Target</th><th>Checks</th></tr></thead>
+          <tbody id="sig-rows"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- ===== PORTFOLIO (pro 4H strategy, all symbols) ===== -->
+    <div class="rp-card" id="pf-card">
+      <div class="rp-head">
+        <h2>Portfolio — pro 4H strategy</h2>
+        <span class="win-badge" id="pf-badge">—</span>
+        <span class="rp-window" id="pf-window"></span>
+      </div>
+      <p class="sub" style="margin:-4px 0 14px">The trend + volatility-expansion
+        setup (T3, Range Filter, Squeeze, Chaikin/Change-of-Vol, DMI) traded on 4H
+        across every symbol with a 2.5×/5×ATR trailing stop, merged into one
+        equity curve — <b>net of fees, slippage and funding</b>. A trend-following
+        edge: it earns in trends and bleeds in chop.</p>
+      <div class="rp-tiles">
+        <div class="rp-tile"><div class="t-lab">Account growth</div>
+          <div class="t-val" id="pf-growth">—</div><div class="t-sub">compounded, risking 1% / trade</div></div>
+        <div class="rp-tile"><div class="t-lab">Annualized</div>
+          <div class="t-val" id="pf-annual">—</div><div class="t-sub">same, per year</div></div>
+        <div class="rp-tile"><div class="t-lab">Net result</div>
+          <div class="t-val" id="pf-net">—</div><div class="t-sub">in R, all symbols</div></div>
+        <div class="rp-tile"><div class="t-lab">Win rate</div>
+          <div class="t-val" id="pf-win">—</div><div class="t-sub" id="pf-trades-sub">winners run, losers cut</div></div>
+        <div class="rp-tile"><div class="t-lab">Profit factor</div>
+          <div class="t-val" id="pf-pf">—</div><div class="t-sub">gross win ÷ gross loss</div></div>
+        <div class="rp-tile"><div class="t-lab">Max drawdown</div>
+          <div class="t-val down" id="pf-dd">—</div><div class="t-sub">worst dip, at 1% / trade</div></div>
+      </div>
+      <span id="pf-trades" hidden></span>
+      <div class="eq-wrap"><svg class="eq" id="pf-equity" preserveAspectRatio="none"></svg></div>
+      <div class="tbl-scroll" style="margin-top:14px">
+        <table class="rp-tbl">
+          <thead><tr><th>Symbol</th><th>Trades</th><th>Win rate</th><th>Net R</th>
+            <th>Avg win</th><th>Avg loss</th><th>PF</th></tr></thead>
+          <tbody id="pf-persym"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- ===== LIVE FORWARD TEST (frozen as trades settle) ===== -->
+    <div class="rp-card" id="fw-card">
+      <div class="rp-head">
+        <h2>Live forward test — pro strategy</h2>
+        <span class="win-badge" id="fw-badge">—</span>
+        <span class="rp-window" id="fw-window"></span>
+      </div>
+      <p class="sub" style="margin:-4px 0 14px">Not a backtest. Every trade the pro
+        strategy fires across all symbols (4H) is <b>frozen the moment it settles and
+        never re-scored</b> — so this record is out-of-sample by construction, the
+        honest proof. It grows over real time.</p>
+      <div class="rp-tiles">
+        <div class="rp-tile"><div class="t-lab">Net result</div>
+          <div class="t-val" id="fw-net">—</div><div class="t-sub">in R, live</div></div>
+        <div class="rp-tile"><div class="t-lab">Trades</div>
+          <div class="t-val" id="fw-trades">—</div><div class="t-sub">settled, forward</div></div>
+        <div class="rp-tile"><div class="t-lab">Win rate</div>
+          <div class="t-val" id="fw-win">—</div><div class="t-sub">winners run, losers cut</div></div>
+        <div class="rp-tile"><div class="t-lab">Profit factor</div>
+          <div class="t-val" id="fw-pf">—</div><div class="t-sub">gross win ÷ gross loss</div></div>
+        <div class="rp-tile"><div class="t-lab">Max drawdown</div>
+          <div class="t-val down" id="fw-dd">—</div><div class="t-sub">worst dip, in R</div></div>
+        <div class="rp-tile"><div class="t-lab">Tracking since</div>
+          <div class="t-val" id="fw-since" style="font-size:19px">—</div><div class="t-sub">forward start</div></div>
+      </div>
+      <div class="eq-wrap"><svg class="eq" id="fw-equity" preserveAspectRatio="none"></svg></div>
+      <div class="tbl-scroll" style="margin-top:14px">
+        <table class="rp-tbl">
+          <thead><tr><th>Time</th><th>Sym</th><th>Side</th><th>Entry</th><th>SL</th>
+            <th>TP</th><th>Exit</th><th>R</th><th>Result</th></tr></thead>
+          <tbody id="fw-tradelist"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <h2 id="rp-bt-title" style="font:800 17px var(--sans);margin:26px 0 6px">Backtest — pro strategy</h2>
+    <p class="sub" id="rp-bt-note" style="margin:0 0 14px">One symbol on the 4-hour
+      timeframe (where the edge lives), over the chosen window. Every entry, stop and
+      target comes from the pro indicators. This strategy takes ~1 trade per week per
+      coin, so judge it over 90 days+ — a single week is too few trades to mean anything.
+      The Portfolio (all symbols) and the Live forward test are below.</p>
+    <div id="rp-status" class="rp-status">Scoring the engine over history…</div>
+
+    <div id="rp-body" hidden>
+      <div class="rp-head">
+        <h2 id="rp-title">—</h2>
+        <span class="win-badge" id="rp-winbadge">—</span>
+        <span class="rp-window" id="rp-windowtxt"></span>
+      </div>
+
+      <div class="rp-tiles">
+        <div class="rp-tile"><div class="t-lab">Trades taken</div>
+          <div class="t-val" id="k-trades">—</div>
+          <div class="t-sub" id="k-trades-sub"></div></div>
+        <div class="rp-tile"><div class="t-lab">Win rate</div>
+          <div class="t-val" id="k-winrate">—</div>
+          <div class="t-sub" id="k-winrate-sub"></div></div>
+        <div class="rp-tile"><div class="t-lab">Net result</div>
+          <div class="t-val" id="k-net">—</div>
+          <div class="t-sub">in R (risk multiples)</div></div>
+        <div class="rp-tile"><div class="t-lab">Profit factor</div>
+          <div class="t-val" id="k-pf">—</div>
+          <div class="t-sub">gross win ÷ gross loss</div></div>
+        <div class="rp-tile"><div class="t-lab">Wins</div>
+          <div class="t-val up" id="k-wins">—</div>
+          <div class="t-sub">hit take-profit</div></div>
+        <div class="rp-tile"><div class="t-lab">Losses</div>
+          <div class="t-val down" id="k-losses">—</div>
+          <div class="t-sub">hit stop-loss</div></div>
+        <div class="rp-tile"><div class="t-lab">Avg per trade</div>
+          <div class="t-val" id="k-exp">—</div>
+          <div class="t-sub">expectancy in R</div></div>
+        <div class="rp-tile"><div class="t-lab">Max drawdown</div>
+          <div class="t-val down" id="k-dd">—</div>
+          <div class="t-sub">worst equity dip, in R</div></div>
+      </div>
+
+      <div class="rp-card">
+        <h3>Equity curve</h3>
+        <p class="sub">Running profit in R across the trades in this window.</p>
+        <div class="eq-wrap"><svg class="eq" id="rp-equity" preserveAspectRatio="none"></svg></div>
+      </div>
+
+      <div class="rp-card">
+        <h3>Week by week</h3>
+        <p class="sub">Each completed week the engine has been scored on, newest last.</p>
+        <div class="tbl-scroll">
+          <table class="rp-tbl">
+            <thead><tr><th>Week</th><th>Trades</th><th>Win rate</th><th>Net R</th><th>Max DD</th></tr></thead>
+            <tbody id="rp-weeks"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="rp-card">
+        <h3>Every trade</h3>
+        <p class="sub">Entry, exit and outcome of each position in this window (most recent last).</p>
+        <div class="tbl-scroll">
+          <table class="rp-tbl">
+            <thead><tr><th>Opened</th><th>Side</th><th>Entry</th><th>Stop</th><th>Target</th>
+              <th>Exit</th><th>R</th><th>Result</th></tr></thead>
+            <tbody id="rp-trades"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+  <script src="/static/report.js"></script>
+</body>
+</html>

@@ -1,0 +1,16 @@
+[Unit]
+Description=ASTRA Terminal (crypto analysis app)
+After=network.target
+
+[Service]
+Type=simple
+WorkingDirectory=__APP_DIR__
+ExecStart=__APP_DIR__/.venv/bin/python web/app.py __PORT__
+Restart=always
+RestartSec=5
+User=__RUN_USER__
+# keep the process from hogging the box
+Nice=5
+
+[Install]
+WantedBy=multi-user.target
