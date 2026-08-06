@@ -1,5 +1,5 @@
 [Unit]
-Description=ASTRA Terminal (crypto analysis app)
+Description=scalper (crypto analysis app)
 After=network.target
 
 [Service]

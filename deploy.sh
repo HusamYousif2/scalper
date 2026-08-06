@@ -48,20 +48,20 @@ echo "==> installing systemd service"
 sed -e "s#__APP_DIR__#${APP_DIR}#g" \
     -e "s#__RUN_USER__#${RUN_USER}#g" \
     -e "s#__PORT__#${PORT}#g" \
-    "$APP_DIR/deploy/astra.service" > /etc/systemd/system/astra.service
+    "$APP_DIR/deploy/scalper.service" > /etc/systemd/system/scalper.service
 
 systemctl daemon-reload
-systemctl enable astra >/dev/null 2>&1 || true
-systemctl restart astra
+systemctl enable scalper >/dev/null 2>&1 || true
+systemctl restart scalper
 sleep 2
 
 echo ""
-if systemctl is-active --quiet astra; then
-  echo "==> ASTRA is running on http://<this-vps-ip>:${PORT}"
+if systemctl is-active --quiet scalper; then
+  echo "==> scalper is running on http://<this-vps-ip>:${PORT}"
 else
-  echo "==> service did not start — check: journalctl -u astra -n 40 --no-pager"
+  echo "==> service did not start — check: journalctl -u scalper -n 40 --no-pager"
 fi
-echo "    live logs:  journalctl -u astra -f"
-echo "    subdomain + SSL:  see deploy/astra.nginx.conf"
+echo "    live logs:  journalctl -u scalper -f"
+echo "    subdomain + SSL:  see deploy/scalper.nginx.conf"
 echo "    SECURITY: the app has no login — firewall the port to your IP, or use"
-echo "              the nginx password gate in deploy/astra.nginx.conf."
+echo "              the nginx password gate in deploy/scalper.nginx.conf."
