@@ -307,16 +307,21 @@ function showIndicatorInfo(key) {
       <button class="im-close">✕</button>
     </div>
     ${current ? `<div class="im-current">Current value <b>${current}</b></div>` : ""}
-    <div class="im-block"><span class="im-lab">What it is</span><p>${info.what}</p></div>
-    <div class="im-block"><span class="im-lab">Formula</span>
+    <div class="im-block"><span class="im-lab">Overview</span><p>${info.what}</p></div>
+    <div class="im-block"><span class="im-lab">Interpretation</span><p>${info.read}</p></div>
+    ${(buy || sell) ? `<div class="im-block"><span class="im-lab">Signals</span>
+      <div class="im-sigs">
+        ${buy ? `<div class="im-sig long"><span class="im-sig-k">Long · Bullish</span>
+          <span class="im-sig-t">${buy}</span></div>` : ""}
+        ${sell ? `<div class="im-sig short"><span class="im-sig-k">Short · Bearish</span>
+          <span class="im-sig-t">${sell}</span></div>` : ""}
+      </div></div>` : ""}
+    <div class="im-block"><span class="im-lab">Calculation</span>
       <code class="im-formula">${info.formula}</code></div>
-    <div class="im-block"><span class="im-lab">How to read it</span><p>${info.read}</p></div>
-    ${buy ? `<div class="im-block im-buy"><span class="im-lab">▲ Where to BUY</span><p>${buy}</p></div>` : ""}
-    ${sell ? `<div class="im-block im-sell"><span class="im-lab">▼ Where to SELL</span><p>${sell}</p></div>` : ""}
-    ${(!buy && !sell) ? `<div class="im-note">This is a context / confirmation tool — it
-      sharpens the strategy's entries rather than giving its own buy or sell.</div>` : ""}
+    ${(!buy && !sell) ? `<div class="im-note">Context / confirmation tool — it sharpens
+      the strategy's entries rather than issuing its own signal.</div>` : ""}
     ${info.proprietary ? `<div class="im-note">Built by ASTRA from raw trade and
-      derivatives data. You will not find this on a standard charting site.</div>` : ""}`;
+      derivatives data — not available on standard charting sites.</div>` : ""}`;
   box.querySelector(".im-close").addEventListener("click", () => (modal.hidden = true));
   modal.hidden = false;
 }

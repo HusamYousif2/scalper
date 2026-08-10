@@ -275,9 +275,12 @@ function markLevels(entry, tp, sl) {
 function renderLegend() {
   const el = document.getElementById("chart-legend");
   if (!el) return;
+  // every active study is a clickable, colour-coded chip — click one to open its
+  // full detail card (overview, interpretation, long/short signals, formula)
   el.innerHTML = [...ACTIVE]
-    .filter((k) => STUDIES[k] && STUDIES[k].pane === "main")
-    .map((k) => `<span class="lg" data-k="${k}">` +
+    .filter((k) => STUDIES[k])
+    .map((k) => `<span class="lg" data-k="${k}" tabindex="0" role="button" ` +
+                `title="Click for details, signals & how to trade it">` +
                 `<i style="background:${STUDIES[k].color}"></i>${STUDIES[k].label}</span>`)
     .join("");
 }
