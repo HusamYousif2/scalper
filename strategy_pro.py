@@ -273,10 +273,21 @@ def current(symbol, tf, minute_df=None):
     ]
     passed = sum(1 for c_ in checks if c_["pass"])
     stop_bps = abs(close - stop) / close * 1e4
+
+    # opportunity score (0-100): how strong / ready this setup is right now
+    adx_v = float(row["adx"]) if not np.isnan(row["adx"]) else 0.0
+    adx_f = max(0.0, min(1.0, (adx_v - 15) / 25))
+    score = 50 * (passed / len(checks)) + (30 if signal_now else 0) \
+        + 15 * adx_f + (5 if vedge else 0)
+    score = round(min(100.0, score))
+    rating = "Fire" if signal_now else "Strong" if score >= 72 \
+        else "Building" if score >= 50 else "Watch"
+
     return {
         "symbol": symbol, "tf": tf,
         "bias": bias,
         "signal_now": signal_now,
+        "score": score, "rating": rating,
         "entry": round(close, 6),
         "stop": round(stop, 6),
         "target": round(target, 6),
@@ -285,7 +296,7 @@ def current(symbol, tf, minute_df=None):
         "atr_pct": round(atr / close * 100, 3),
         "trail_atr": TRAIL_ATR,
         "stop_atr": STOP_ATR,
-        "adx": round(float(row["adx"]), 1),
+        "adx": round(adx_v, 1),
         "passed": passed, "total_checks": len(checks),
         "checks": checks,
         "as_of": int(c.index[i].timestamp()),

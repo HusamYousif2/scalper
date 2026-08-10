@@ -171,24 +171,70 @@ async function loadSignals() {
   try {
     const j = await fetch("/api/signals?tf=240").then((r) => r.json());
     renderSignals(j.rows || []);
-  } catch (e) { /* leave empty */ }
+  } catch (e) { /* leave last render */ }
 }
+
+function ratingColor(r) {
+  return r === "Fire" ? "var(--gold)" : r === "Strong" ? "var(--up)"
+    : r === "Building" ? "#5b9bf5" : "var(--faint)";
+}
+function scoreBar(score, rating) {
+  const col = ratingColor(rating);
+  return `<span class="sig-bar"><i style="width:${score}%;background:${col}"></i></span>` +
+    `<b style="color:${col}">${score}</b>`;
+}
+function biasTag(b) { return `<span class="side-${b}">${b === "long" ? "▲ LONG" : "▼ SHORT"}</span>`; }
 
 function renderSignals(rows) {
   const tb = $("sig-rows");
   if (!tb) return;
-  if (!rows.length) { tb.innerHTML = `<tr><td colspan="7" class="rp-empty">Loading…</td></tr>`; return; }
-  tb.innerHTML = rows.map((r) => {
-    const up = r.bias === "long";
+  if (!rows.length) {
+    tb.innerHTML = `<tr><td colspan="8" class="rp-empty">Scanning…</td></tr>`;
+    return;
+  }
+  const fires = rows.filter((r) => r.signal_now).length;
+  const strong = rows.filter((r) => r.score >= 72).length;
+  const badge = $("sig-badge");
+  if (badge) {
+    badge.textContent = fires ? `${fires} firing now` : strong ? `${strong} strong` : "watching";
+    badge.className = `win-badge ${fires ? "good" : ""}`;
+  }
+  const upd = $("sig-updated");
+  if (upd) {
+    const n = new Date();
+    upd.textContent = `4H · updated ${String(n.getHours()).padStart(2, "0")}:${String(n.getMinutes()).padStart(2, "0")}`;
+  }
+
+  // featured top pick
+  const t = rows[0];
+  const top = $("sig-top");
+  if (top && t) {
+    const col = ratingColor(t.rating);
+    top.innerHTML = `<div class="sig-top ${t.bias}">
+      <div class="sig-top-l">
+        <div class="sig-top-coin">${t.symbol.replace("USDT", "")}<span> / USDT</span></div>
+        <div class="sig-top-rating" style="color:${col}">${t.rating === "Fire" ? "● FIRE — entry triggered" : t.rating + " setup"} · ${biasTag(t.bias)}</div>
+      </div>
+      <div class="sig-top-score"><div class="sig-top-num" style="color:${col}">${t.score}</div><span>opportunity</span></div>
+      <div class="sig-top-lvls">
+        <div><span>Entry</span><b>${fmtPx(t.entry)}</b></div>
+        <div><span>Stop</span><b class="loss">${fmtPx(t.stop)}</b></div>
+        <div><span>Target</span><b class="win">${fmtPx(t.target)}</b></div>
+      </div>
+    </div>`;
+  }
+
+  tb.innerHTML = rows.map((r, i) => {
     const live = r.signal_now;
-    return `<tr${live ? ' style="background:rgba(46,204,143,0.06)"' : ""}>
+    return `<tr${live ? ' style="background:rgba(245,197,66,0.06)"' : ""}>
+      <td>${i + 1}</td>
       <td><b>${r.symbol.replace("USDT", "")}</b></td>
-      <td class="side-${r.bias}">${up ? "▲ LONG" : "▼ SHORT"}</td>
-      <td class="${live ? "win" : ""}">${live ? "● SIGNAL NOW" : "watching"}</td>
+      <td class="sig-score">${scoreBar(r.score, r.rating)}</td>
+      <td>${biasTag(r.bias)}</td>
+      <td style="color:${ratingColor(r.rating)}">${live ? "● FIRE" : r.rating}</td>
       <td>${fmtPx(r.entry)}</td>
       <td class="loss">${fmtPx(r.stop)}</td>
       <td class="win">${fmtPx(r.target)}</td>
-      <td>${r.passed}/${r.total_checks}</td>
     </tr>`;
   }).join("");
 }
@@ -344,4 +390,5 @@ function reorderForControls() {
   loadSignals();
   loadPortfolio();
   loadForward();
+  setInterval(loadSignals, 60000);   // the scanner refreshes on its own
 })();

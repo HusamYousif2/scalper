@@ -751,6 +751,34 @@ footer {
 
 /* header legend is replaced by the on-chart HUD */
 #chart-legend { display: none; }
+
+/* opportunity scanner */
+.sig-score { min-width: 120px; }
+.sig-bar { display: inline-block; width: 74px; height: 6px; border-radius: 4px;
+  background: var(--panel-3); vertical-align: middle; margin-right: 8px; overflow: hidden; }
+.sig-bar i { display: block; height: 100%; border-radius: 4px; }
+.sig-top { display: grid; grid-template-columns: 1.3fr auto 1.6fr; gap: 22px;
+  align-items: center; padding: 18px 20px; border-radius: 14px;
+  background: var(--panel-2); border: 1px solid var(--line); border-left: 4px solid var(--line); }
+.sig-top.long { border-left-color: var(--up); }
+.sig-top.short { border-left-color: var(--down); }
+.sig-top-coin { font: 800 24px var(--sans); }
+.sig-top-coin span { font: 600 14px var(--sans); color: var(--muted); }
+.sig-top-rating { margin-top: 4px; font: 700 12px var(--mono); text-transform: uppercase;
+  letter-spacing: 0.04em; }
+.sig-top-score { text-align: center; }
+.sig-top-num { font: 800 40px var(--mono); line-height: 1; }
+.sig-top-score span { font: 600 10.5px var(--mono); color: var(--faint);
+  text-transform: uppercase; letter-spacing: 0.1em; }
+.sig-top-lvls { display: flex; gap: 22px; justify-content: flex-end; }
+.sig-top-lvls div { display: flex; flex-direction: column; gap: 3px; }
+.sig-top-lvls span { font: 600 10px var(--mono); color: var(--faint);
+  text-transform: uppercase; letter-spacing: 0.08em; }
+.sig-top-lvls b { font: 700 15px var(--mono); }
+@media (max-width: 620px) {
+  .sig-top { grid-template-columns: 1fr; gap: 12px; }
+  .sig-top-lvls { justify-content: flex-start; }
+}
 .legend { display: flex; gap: 7px; flex-wrap: wrap; }
 .legend .lg {
   display: inline-flex; align-items: center; gap: 6px;

@@ -79,20 +79,22 @@
       </div>
     </div>
 
-    <!-- ===== LIVE SIGNALS (act now, all coins) ===== -->
+    <!-- ===== OPPORTUNITY SCANNER (ranked, all coins, auto-refresh) ===== -->
     <div class="rp-card" id="sig-card">
       <div class="rp-head">
-        <h2>Live signals — where to act now</h2>
-        <span class="rp-window">4H · all coins</span>
+        <h2>Opportunity scanner</h2>
+        <span class="win-badge" id="sig-badge">—</span>
+        <span class="rp-window" id="sig-updated">4H · all coins</span>
       </div>
-      <p class="sub" style="margin:-4px 0 14px">The strategy's current read on every
-        coin. <b>SIGNAL NOW</b> = a fresh entry just fired this bar; otherwise it's the
-        standing lean with its levels. Entry, stop and target are from the pro
-        indicators — this is your daily action list.</p>
-      <div class="tbl-scroll">
+      <p class="sub" style="margin:-4px 0 14px">Every coin scored 0–100 on how ready
+        its 4H setup is right now, ranked best-first, refreshing on its own. The top
+        card is where to act now; <b>FIRE</b> means a fresh entry just triggered.
+        Entry, stop and target come from the strategy's indicators.</p>
+      <div id="sig-top"></div>
+      <div class="tbl-scroll" style="margin-top:14px">
         <table class="rp-tbl">
-          <thead><tr><th>Coin</th><th>Bias</th><th>Status</th><th>Entry</th><th>Stop</th>
-            <th>Target</th><th>Checks</th></tr></thead>
+          <thead><tr><th>#</th><th>Coin</th><th>Score</th><th>Bias</th><th>Status</th>
+            <th>Entry</th><th>Stop</th><th>Target</th></tr></thead>
           <tbody id="sig-rows"></tbody>
         </table>
       </div>

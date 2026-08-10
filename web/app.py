@@ -464,7 +464,7 @@ def api_signals(tf: int = Query(240)):
                 rows.append(SP.current(s, tf))
             except Exception:
                 continue
-        rows.sort(key=lambda r: (bool(r.get("signal_now")), r.get("passed", 0)), reverse=True)
+        rows.sort(key=lambda r: (r.get("score", 0), bool(r.get("signal_now"))), reverse=True)
         rep = {"tf": tf, "rows": rows}
         _cache[key] = (time.time(), rep)
         return JSONResponse(_clean({**rep, "cached": False}))
