@@ -390,5 +390,6 @@ function reorderForControls() {
   loadSignals();
   loadPortfolio();
   loadForward();
-  setInterval(loadSignals, 60000);   // the scanner refreshes on its own
+  setInterval(loadSignals, 60000);                       // scanner every minute
+  setInterval(() => { loadPortfolio(); loadForward(); }, 300000);   // the rest every 5 min
 })();

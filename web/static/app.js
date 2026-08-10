@@ -74,6 +74,50 @@ async function loadScanner() {
     if (j && j.rows) renderScanner(j.rows);
   } catch (e) { /* keep last */ }
 }
+
+/* ---------- AI indicator scan (full suite, one coin, every 5 min) ---------- */
+async function loadIndScan() {
+  const sym = $("symbol").value || "BTCUSDT";
+  try {
+    const r = await fetch(`/api/indicator_scan?symbol=${sym}&tf=15`).then((x) => (x.ok ? x.json() : null));
+    if (r) renderIndScan(r);
+  } catch (e) { /* keep last */ }
+}
+function renderIndScan(r) {
+  const col = scanColor(r.rating);
+  if ($("ind-sym")) $("ind-sym").textContent = r.symbol.replace("USDT", "");
+  const upd = $("ind-updated");
+  if (upd) {
+    const n = new Date();
+    upd.textContent = `${r.n_total} indicators · updated ${String(n.getHours()).padStart(2, "0")}:${String(n.getMinutes()).padStart(2, "0")}`;
+  }
+  const top = $("ind-top");
+  if (top) top.innerHTML = `<div class="sig-top ${r.bias}">
+    <div class="sig-top-l">
+      <div class="sig-top-coin">${r.symbol.replace("USDT", "")}<span> / USDT · 15m</span></div>
+      <div class="sig-top-rating" style="color:${col}">${r.rating} · <span class="side-${r.bias}">${r.bias === "long" ? "▲ LONG" : "▼ SHORT"}</span> · ${r.consensus_pct}% consensus (${r.n_long}▲ / ${r.n_short}▼)</div>
+    </div>
+    <div class="sig-top-score"><div class="sig-top-num" style="color:${col}">${r.score}</div><span>signal</span></div>
+    <div class="sig-top-lvls">
+      <div><span>Entry</span><b>${price(r.entry)}</b></div>
+      <div><span>Stop</span><b class="loss">${price(r.stop)}</b></div>
+      <div><span>Target</span><b class="win">${price(r.target)}</b></div>
+    </div>
+  </div>`;
+  const list = $("ind-list");
+  if (list) {
+    const rows = (r.top || []).map((t) => {
+      const up = t.dir === "long", c = up ? "var(--up)" : "var(--down)";
+      return `<div class="ind-row">
+        <span class="ind-name">${t.name}</span>
+        <span class="side-${t.dir}">${up ? "▲" : "▼"}</span>
+        <span class="sig-bar"><i style="width:${t.strength}%;background:${c}"></i></span>
+        <span class="ind-reason">${t.reason}</span>
+      </div>`;
+    }).join("");
+    list.innerHTML = rows || `<div class="rp-empty" style="padding:14px">No strong signals right now.</div>`;
+  }
+}
 function renderScanner(rows) {
   if (!rows.length) return;
   // the scanner already knows every coin's live price — fill the ticker with it
@@ -180,6 +224,7 @@ async function load() {
     safe("chart", () => { buildChart(chartData); buildStudyMenu(() => buildChart(chartData)); });
     // the pro strategy (your indicators) drives the read on every timeframe
     safe("plan", () => fetchProPlan(sym, TF));
+    loadIndScan();   // full indicator-suite read for this coin
     safe("ladder", () => renderLadder(a));
     safe("pulse", () => renderPulse(a));
     safe("signals", () => renderSignals(a));
@@ -831,6 +876,7 @@ $("studies-backdrop").addEventListener("click", closeStudies);
 loadSymbols().then((syms) => {
   loadTicker(syms);
   loadScanner();
-  setInterval(loadScanner, 60000);   // scanner refreshes on its own
+  setInterval(loadScanner, 60000);       // cross-coin scanner refreshes each minute
+  setInterval(loadIndScan, 300000);      // indicator-suite scan every 5 minutes
   return load();
 });

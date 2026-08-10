@@ -769,6 +769,18 @@ footer {
   .scan-row .sig-bar, .scan-row .scan-stat { display: none; }
 }
 
+/* AI indicator scan — the strongest firing studies */
+.indscan-list { display: flex; flex-direction: column; gap: 4px; margin-top: 14px; }
+.ind-row { display: grid; grid-template-columns: 150px 20px 90px 1fr;
+  align-items: center; gap: 12px; padding: 9px 12px; border-radius: 9px;
+  background: var(--panel-2); border: 1px solid var(--line); }
+.ind-name { font: 700 12.5px var(--sans); }
+.ind-reason { font: 500 12px var(--sans); color: var(--muted); }
+@media (max-width: 560px) {
+  .ind-row { grid-template-columns: 1fr 18px auto; }
+  .ind-row .ind-reason { display: none; }
+}
+
 /* opportunity scanner */
 .sig-score { min-width: 120px; }
 .sig-bar { display: inline-block; width: 74px; height: 6px; border-radius: 4px;

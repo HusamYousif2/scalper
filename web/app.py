@@ -470,6 +470,25 @@ def api_signals(tf: int = Query(240)):
         return JSONResponse(_clean({**rep, "cached": False}))
 
 
+@app.get("/api/indicator_scan")
+def api_indicator_scan(symbol: str = Query("BTCUSDT"), tf: int = Query(15)):
+    """Scan the whole indicator suite for one symbol: consensus bias, score, and
+    the top indicators firing right now, with entry/stop/target. Refresh on a timer."""
+    import indicator_ai as IA
+
+    key = ("indscan", symbol, tf)
+    hit = _cache.get(key)
+    if hit and time.time() - hit[0] < 90:
+        return JSONResponse(_clean({**hit[1], "cached": True}))
+    with _lock_for(key):
+        try:
+            rep = IA.scan(symbol, tf, _market_frame(symbol, 25))
+        except Exception as e:
+            raise HTTPException(503, f"{type(e).__name__}: {e}")
+        _cache[key] = (time.time(), rep)
+        return JSONResponse(_clean({**rep, "cached": False}))
+
+
 @app.get("/api/forward")
 def api_forward(tf: int = Query(240)):
     """The live forward test: trades frozen as they settle in real time (BTC+ETH),
