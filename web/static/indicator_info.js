@@ -197,11 +197,92 @@ const INDICATOR_INFO = {
     formula: "log(retail long/short) − log(top-trader long/short)",
     what: "The gap between how retail is positioned and how the largest accounts are positioned.",
     read: "When the crowd is heavily long while big accounts are not, it warns of a crowded trade vulnerable to a squeeze. A contrarian's gauge." },
+
+  /* ---------- your strategy (the pro 4H setup) ---------- */
+  pro_t3: { name: "T3 (8, 0.7) — trend permission", group: "Your strategy",
+    formula: "6-times-smoothed EMA (Tillson T3)",
+    what: "A smooth trend line. It is the strategy's gatekeeper: it only allows longs when price is above it, and shorts when price is below it.",
+    read: "Price above a rising T3 = uptrend. Price below a falling T3 = downtrend. A flat T3 means no trend — stand aside.",
+    buy: "Only buy when price is ABOVE the T3 line and the line is sloping UP. If price closes back below T3, exit the long.",
+    sell: "Only sell/short when price is BELOW the T3 line and it is sloping DOWN. If price closes back above T3, exit the short." },
+  pro_rf: { name: "Range Filter (50, 3.0)", group: "Your strategy",
+    formula: "smoothed average range band that only moves when price breaks it",
+    what: "A stair-step line that stays flat during noise and steps up or down in a real trend — it filters out chop.",
+    read: "A rising filter with price above it = healthy uptrend. Falling filter with price below = downtrend.",
+    buy: "Buy when the filter turns UP and price sits above it (a fresh up-step). This is the strategy's 'entry event A'.",
+    sell: "Sell when the filter turns DOWN and price sits below it (a fresh down-step)." },
+  pro_sq: { name: "Squeeze Momentum", group: "Your strategy",
+    formula: "linear-regression momentum + Bollinger/Keltner squeeze state (TTM)",
+    what: "Measures momentum after a quiet 'squeeze'. Green bars above zero = up-momentum, red bars below zero = down-momentum. When a squeeze releases, a big move usually follows.",
+    read: "Bars growing above zero = buyers taking over. Bars growing below zero = sellers taking over.",
+    buy: "Buy when the bars cross ABOVE zero (turn green), ideally right as a squeeze releases — 'entry event B'.",
+    sell: "Sell when the bars cross BELOW zero (turn red)." },
+  pro_cov: { name: "Change of Volatility — the edge", group: "Your strategy",
+    formula: "short-term volatility ÷ its own longer baseline − 1",
+    what: "Tells you whether the market is WAKING UP. Above zero and rising means volatility is expanding — the fuel a breakout needs.",
+    read: "Rising and positive = a real move is starting. Falling / below zero = a dead, choppy market.",
+    buy: "Not a buy signal by itself. Only take your buy (from T3 / Range Filter / Squeeze) WHEN this is positive and rising.",
+    sell: "Same for sells — only short when volatility is expanding. When this is falling, skip the trade entirely." },
+  pro_cvol: { name: "Chaikin Volatility — the edge", group: "Your strategy",
+    formula: "rate of change of the smoothed high-low range",
+    what: "A second volatility-expansion gauge, from the candle range. Positive = the range is widening (a move is underway).",
+    read: "Above zero = expanding volatility, good for breakouts. Below zero = contracting, avoid.",
+    buy: "Confirmation only: take longs when this is positive (volatility expanding up).",
+    sell: "Take shorts when this is positive alongside a down signal. Ignore signals when it is negative." },
+  pro_adx: { name: "ADX (10) — trend strength", group: "Your strategy",
+    formula: "smoothed |DI+ − DI−| ÷ (DI+ + DI−)",
+    what: "How STRONG the trend is (not its direction). The strategy needs ADX above ~20 before it trusts any signal.",
+    read: "Above 20 and rising = a trend with power. Below 20 = range / chop, where breakouts fail.",
+    buy: "Not directional. Only take a buy when ADX is above ~20. Don't buy in a flat, low-ADX market.",
+    sell: "Same — only short when ADX is above ~20." },
+  pro_dip: { name: "DI + (10) — buyers' strength", group: "Your strategy",
+    formula: "smoothed positive directional movement",
+    what: "The green directional line. When DI+ is above DI−, buyers are in control.",
+    read: "DI+ above DI− = upward pressure dominates.",
+    buy: "Buy bias when DI+ crosses ABOVE DI− (with ADX > 20).",
+    sell: "Exit longs / avoid buys when DI+ drops back below DI−." },
+  pro_dim: { name: "DI − (10) — sellers' strength", group: "Your strategy",
+    formula: "smoothed negative directional movement",
+    what: "The red directional line. When DI− is above DI+, sellers are in control.",
+    read: "DI− above DI+ = downward pressure dominates.",
+    buy: "Avoid buys while DI− leads.",
+    sell: "Short bias when DI− crosses ABOVE DI+ (with ADX > 20)." },
+  pro_atr_pct: { name: "ATR % (14) — stop & target sizer", group: "Your strategy",
+    formula: "Average True Range ÷ price × 100",
+    what: "How much the coin typically moves, as a percent. The strategy uses it to place the stop and target — it is a risk tool, not a buy/sell signal.",
+    read: "Bigger ATR% = bigger candles = wider stop needed. Tiny ATR% = dead market, skip.",
+    buy: "After a buy signal, put your STOP about 2×ATR below entry and your first TARGET about 4×ATR above (≈ 2R).",
+    sell: "After a sell signal, STOP about 2×ATR above entry, TARGET about 4×ATR below. Avoid trading when ATR% is very small." },
+};
+
+/* short buy/sell hints for the classic indicators (shown in the same card) */
+const TRADE_HINTS = {
+  ema21: { buy: "Buy when price is above the 21 and the 21 is above the 50 (short-term uptrend).", sell: "Sell when price falls below the 21 and it rolls under the 50." },
+  ema50: { buy: "Buy pullbacks that hold above a rising 50 — it acts as support in an uptrend.", sell: "Sell rallies that fail under a falling 50 — it acts as resistance in a downtrend." },
+  ema200: { buy: "Prefer longs while price is above the 200 (broad uptrend).", sell: "Prefer shorts while price is below the 200 (broad downtrend)." },
+  vwap: { buy: "Buy when price is above VWAP (today's buyers are winning), or on a dip back to it that holds.", sell: "Sell when price is below VWAP, or on a bounce to it that fails." },
+  bb_up: { buy: "In a strong trend, a close above the upper band is a breakout — buy continuation.", sell: "In a range, price tagging the upper band is stretched — a mean-reversion sell." },
+  bb_dn: { buy: "In a range, price tagging the lower band is stretched — a mean-reversion buy.", sell: "In a downtrend, a close below the lower band is a breakdown — sell continuation." },
+  supertrend: { buy: "Buy when SuperTrend flips GREEN and sits below price.", sell: "Sell when it flips RED and sits above price. Many traders trail their stop on this line." },
+  rsi: { buy: "Buy as RSI turns up from below 30 (oversold). In an uptrend, use the 40 level as the dip zone.", sell: "Sell as RSI turns down from above 70 (overbought). In a downtrend, use 60 as the bounce zone." },
+  macd: { buy: "Buy when MACD crosses above its signal line, especially below zero.", sell: "Sell when MACD crosses below its signal line, especially above zero." },
+  macd_hist: { buy: "Buy when the histogram turns from red to green (momentum flipping up).", sell: "Sell when it turns from green to red (momentum flipping down)." },
+  adx: { buy: "Only take buys when ADX is above ~20 (real trend). Low ADX = chop, stay out.", sell: "Only take shorts when ADX is above ~20." },
+  di_plus: { buy: "Buy bias when DI+ crosses above DI−.", sell: "Reduce longs when DI+ falls back below DI−." },
+  di_minus: { buy: "Avoid buys while DI− leads.", sell: "Short bias when DI− crosses above DI+." },
+  cvd: { buy: "Buy when CVD is rising with price — real buying pressure backs the move.", sell: "Sell when CVD is falling with price. If price rises but CVD drops, the rally is weak (divergence)." },
+  volume: { buy: "Trust an upside breakout that comes on a big volume bar.", sell: "Trust a breakdown on heavy volume; ignore moves on thin volume." },
+  aggressor: { buy: "Buy when aggressive market buyers dominate (positive imbalance).", sell: "Sell when aggressive market sellers dominate (negative imbalance)." },
+  whale_flow: { buy: "Buy alongside net whale buying — large players accumulating.", sell: "Sell alongside net whale selling — large players distributing." },
+  oi_chg: { buy: "Price up + open interest up = new longs with fuel — buy continuation.", sell: "Price up + open interest down = short covering that may fade — avoid chasing." },
 };
 
 function showIndicatorInfo(key) {
   const info = INDICATOR_INFO[key];
   if (!info) return;
+  const hint = TRADE_HINTS[key] || {};
+  const buy = info.buy || hint.buy;
+  const sell = info.sell || hint.sell;
   let modal = document.getElementById("ind-modal");
   if (!modal) {
     modal = document.createElement("div");
@@ -230,14 +311,23 @@ function showIndicatorInfo(key) {
     <div class="im-block"><span class="im-lab">Formula</span>
       <code class="im-formula">${info.formula}</code></div>
     <div class="im-block"><span class="im-lab">How to read it</span><p>${info.read}</p></div>
+    ${buy ? `<div class="im-block im-buy"><span class="im-lab">▲ Where to BUY</span><p>${buy}</p></div>` : ""}
+    ${sell ? `<div class="im-block im-sell"><span class="im-lab">▼ Where to SELL</span><p>${sell}</p></div>` : ""}
+    ${(!buy && !sell) ? `<div class="im-note">This is a context / confirmation tool — it
+      sharpens the strategy's entries rather than giving its own buy or sell.</div>` : ""}
     ${info.proprietary ? `<div class="im-note">Built by ASTRA from raw trade and
       derivatives data. You will not find this on a standard charting site.</div>` : ""}`;
   box.querySelector(".im-close").addEventListener("click", () => (modal.hidden = true));
   modal.hidden = false;
 }
 
-/* clicking a legend chip or a pane header opens the card */
+/* clicking a legend chip, a pane header, or the ⓘ button in the studies menu
+   opens the card */
 document.addEventListener("click", (e) => {
-  const lg = e.target.closest(".lg[data-k], .pb-item[data-k]");
-  if (lg && lg.dataset.k) showIndicatorInfo(lg.dataset.k);
+  const lg = e.target.closest(".lg[data-k], .pb-item[data-k], .std-info[data-k]");
+  if (lg && lg.dataset.k) {
+    e.preventDefault();
+    e.stopPropagation();
+    showIndicatorInfo(lg.dataset.k);
+  }
 });

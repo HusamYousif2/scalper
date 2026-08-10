@@ -316,7 +316,9 @@ function buildStudyMenu(onChange) {
     row.innerHTML =
       `<input type="checkbox" ${ACTIVE.has(key) ? "checked" : ""}>` +
       `<span class="std-dot" style="background:${spec.color}"></span>` +
-      `<span class="std-name">${spec.label}</span>`;
+      `<span class="std-name">${spec.label}</span>` +
+      `<button type="button" class="std-info" data-k="${key}" ` +
+      `title="How to use — where to buy / sell">?</button>`;
     host.appendChild(row);
     row.querySelector("input").addEventListener("change", (e) => {
       if (e.target.checked) ACTIVE.add(key); else ACTIVE.delete(key);
