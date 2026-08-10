@@ -329,7 +329,7 @@ function showIndicatorInfo(key) {
 /* clicking a legend chip, a pane header, or the ⓘ button in the studies menu
    opens the card */
 document.addEventListener("click", (e) => {
-  const lg = e.target.closest(".lg[data-k], .pb-item[data-k], .std-info[data-k]");
+  const lg = e.target.closest(".lg[data-k], .pb-item[data-k], .std-info[data-k], .hud-row[data-k]");
   if (lg && lg.dataset.k) {
     e.preventDefault();
     e.stopPropagation();

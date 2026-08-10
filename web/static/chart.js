@@ -95,6 +95,7 @@ const QUICK = ["pro_t3", "pro_rf", "pro_sq", "pro_cvol", "pro_adx",
                "ema21", "ema50", "vwap", "supertrend", "volume", "rsi", "cvd"];
 
 let CHART = null, ACTIVE = new Set(DEFAULT_ON), LAST_DATA = null, ON_CHANGE = null;
+let LAST_KLINES = [];   // candles with indicator values attached, for the HUD legend
 let PRICE_DP = 2;
 let RESIZE_OBS = null;
 let SAVED_LEVELS = null, LEVEL_IDS = [];
@@ -115,7 +116,8 @@ function themeStyles() {
                  text: { color: TEXT } },
     },
     indicator: {
-      tooltip: { text: { color: TEXT } },
+      // native indicator legend is hidden — we draw our own clickable HUD instead
+      tooltip: { showRule: "none", text: { color: TEXT } },
       lastValueMark: { show: false },
     },
     xAxis: { axisLine: { color: AXIS }, tickLine: { color: AXIS }, tickText: { color: "#9b9daa" } },
@@ -221,6 +223,7 @@ function buildChart(data) {
     return o;
   });
   CHART.applyNewData(klineData);
+  LAST_KLINES = klineData;
 
   // draw the active studies
   for (const key of ACTIVE) {
@@ -247,6 +250,57 @@ function buildChart(data) {
 
   renderLegend();
   renderQuickBar();
+
+  // clickable HUD legend over the chart, with live values on the crosshair
+  buildHud();
+  CHART.subscribeAction("onCrosshairChange", (data) => {
+    let k = null;
+    if (data && typeof data.dataIndex === "number" && LAST_KLINES[data.dataIndex]) {
+      k = LAST_KLINES[data.dataIndex];
+    } else if (data && data.kLineData) {
+      k = data.kLineData;
+    }
+    updateHudValues(k || LAST_KLINES[LAST_KLINES.length - 1]);
+  });
+}
+
+/* how many decimals a HUD value gets */
+function fmtHudVal(v, spec) {
+  if (v == null || Number.isNaN(v)) return "—";
+  if (spec.pane === "main") {
+    return Number(v).toLocaleString(undefined,
+      { minimumFractionDigits: PRICE_DP, maximumFractionDigits: PRICE_DP });
+  }
+  const a = Math.abs(v);
+  const dp = a >= 100 ? 0 : a >= 1 ? 2 : 4;
+  return Number(v).toFixed(dp);
+}
+
+/* build the on-chart clickable legend (name + colour + live value) */
+function buildHud() {
+  const hud = document.getElementById("chart-hud");
+  if (!hud) return;
+  const last = LAST_KLINES[LAST_KLINES.length - 1] || {};
+  const rows = [...ACTIVE]
+    .filter((k) => STUDIES[k] && !STUDIES[k].builtin)   // volume has no attached series
+    .map((k) => {
+      const s = STUDIES[k];
+      return `<div class="hud-row" data-k="${k}" role="button" tabindex="0" ` +
+             `title="Click for details, signals & how to trade it">` +
+             `<i style="background:${s.color}"></i>` +
+             `<span class="hud-name">${s.label}</span>` +
+             `<span class="hud-val" data-hv="${k}">${fmtHudVal(last[k], s)}</span></div>`;
+    });
+  hud.innerHTML = rows.join("");
+}
+
+function updateHudValues(kline) {
+  if (!kline) return;
+  for (const k of ACTIVE) {
+    if (!STUDIES[k] || STUDIES[k].builtin) continue;
+    const el = document.querySelector(`.hud-val[data-hv="${k}"]`);
+    if (el) el.textContent = fmtHudVal(kline[k], STUDIES[k]);
+  }
 }
 
 /* entry / take-profit / stop as horizontal price-line overlays */
