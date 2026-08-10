@@ -746,6 +746,8 @@ footer {
 .hud-name { font: 600 11.5px var(--sans); color: var(--muted); }
 .hud-row:hover .hud-name { color: var(--text); }
 .hud-val { font: 700 11.5px var(--mono); color: var(--text); }
+.hud-row.hud-hot { background: rgba(245,197,66,0.18); border-color: var(--gold); }
+.hud-row.hud-hot .hud-name { color: var(--gold); }
 
 /* header legend is replaced by the on-chart HUD */
 #chart-legend { display: none; }

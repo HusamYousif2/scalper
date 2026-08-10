@@ -96,6 +96,7 @@ const QUICK = ["pro_t3", "pro_rf", "pro_sq", "pro_cvol", "pro_adx",
 
 let CHART = null, ACTIVE = new Set(DEFAULT_ON), LAST_DATA = null, ON_CHANGE = null;
 let LAST_KLINES = [];   // candles with indicator values attached, for the HUD legend
+let HIGHLIGHT = null, HL_TIMER = null, CLICK_WIRED = false;   // click-a-line-to-open state
 let PRICE_DP = 2;
 let RESIZE_OBS = null;
 let SAVED_LEVELS = null, LEVEL_IDS = [];
@@ -160,11 +161,13 @@ function registerStudy(key, spec) {
       styles: (data) => {
         const v = data && data.current && data.current.indicatorData
           ? data.current.indicatorData.v : null;
+        const hl = HIGHLIGHT === key;   // this line is the one just clicked
         if (isBar) {
           const col = spec.signed ? (v >= 0 ? UP : DOWN) : spec.color;
           return { color: col, style: "fill" };
         }
-        return { color: spec.color, size: spec.width || 1,
+        return { color: hl ? "#ffffff" : spec.color,
+                 size: (spec.width || 1) + (hl ? 2 : 0),
                  style: spec.dashed ? "dashed" : "solid" };
       },
     }],
@@ -262,6 +265,61 @@ function buildChart(data) {
     }
     updateHudValues(k || LAST_KLINES[LAST_KLINES.length - 1]);
   });
+
+  // click a drawn line on the candle pane → highlight it and open its card
+  if (!CLICK_WIRED) {
+    CLICK_WIRED = true;
+    el.addEventListener("click", (ev) => {
+      const key = chartLineAt(ev.clientX, ev.clientY);
+      if (key) { highlightLine(key); showIndicatorInfo(key); }
+    });
+  }
+}
+
+/* which main-pane overlay line (if any) sits under the click, within a few px */
+function chartLineAt(clientX, clientY) {
+  if (!CHART) return null;
+  const el = document.getElementById("chart-main");
+  const rect = el.getBoundingClientRect();
+  const x = clientX - rect.left, y = clientY - rect.top;
+  let di;
+  try {
+    const c = CHART.convertFromPixel({ x, y }, { paneId: "candle_pane" });
+    di = Array.isArray(c) ? (c[0] || {}).dataIndex : (c || {}).dataIndex;
+  } catch (e) { return null; }
+  if (di == null || !LAST_KLINES[di]) return null;
+  let best = null, bestD = 8;   // px tolerance
+  for (const key of ACTIVE) {
+    const s = STUDIES[key];
+    if (!s || s.pane !== "main" || s.builtin) continue;
+    const v = LAST_KLINES[di][key];
+    if (v == null || Number.isNaN(v)) continue;
+    let py;
+    try {
+      const p = CHART.convertToPixel(
+        { dataIndex: di, timestamp: LAST_KLINES[di].timestamp, value: v },
+        { paneId: "candle_pane" });
+      py = Array.isArray(p) ? (p[0] || {}).y : (p || {}).y;
+    } catch (e) { continue; }
+    if (py == null) continue;
+    const d = Math.abs(py - y);
+    if (d < bestD) { bestD = d; best = key; }
+  }
+  return best;
+}
+
+/* thicken + whiten the clicked line briefly, and flash its HUD row */
+function highlightLine(key) {
+  HIGHLIGHT = key;
+  try { CHART.overrideIndicator({ name: "S_" + key }); } catch (e) { /* redraw */ }
+  const row = document.querySelector(`.hud-row[data-k="${key}"]`);
+  if (row) row.classList.add("hud-hot");
+  clearTimeout(HL_TIMER);
+  HL_TIMER = setTimeout(() => {
+    const k = HIGHLIGHT; HIGHLIGHT = null;
+    try { if (k) CHART.overrideIndicator({ name: "S_" + k }); } catch (e) { /* redraw */ }
+    document.querySelectorAll(".hud-row.hud-hot").forEach((r) => r.classList.remove("hud-hot"));
+  }, 1600);
 }
 
 /* how many decimals a HUD value gets */

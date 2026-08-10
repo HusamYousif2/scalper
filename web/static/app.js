@@ -433,10 +433,12 @@ function renderProPlan(p) {
   const state = p.signal_now
     ? `A fresh ${p.bias} signal just fired.`
     : `No new signal yet — ${p.passed} of ${p.total_checks} conditions met, waiting for the trigger.`;
+  const stopX = p.stop_atr != null ? p.stop_atr : 2;
+  const trailX = p.trail_atr != null ? p.trail_atr : 7;
   $("re-narr").textContent =
     `Pro ${tl} trend + volatility strategy, leaning ${p.bias}. ${state} ` +
-    `Enter ${price(p.entry)}, stop ${price(p.stop)} (2.5×ATR = 1R), target ${price(target)} (2R). ` +
-    `Every level comes from the strategy's own indicators; past the target the 5×ATR trailing stop lets the winner run.`;
+    `Enter ${price(p.entry)}, stop ${price(p.stop)} (${stopX}×ATR = 1R), target ${price(target)} (2R). ` +
+    `Every level comes from the strategy's own indicators; past the target the ${trailX}×ATR trailing stop lets the winner run.`;
 
   $("re-fams").innerHTML = (p.checks || []).map((c) => {
     const col = c.pass ? "var(--up)" : "var(--faint)";
