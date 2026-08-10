@@ -752,6 +752,23 @@ footer {
 /* header legend is replaced by the on-chart HUD */
 #chart-legend { display: none; }
 
+/* opportunity scanner (main page ranked list) */
+.scan-list { display: flex; flex-direction: column; gap: 4px; margin-top: 14px; }
+.scan-row { display: grid; grid-template-columns: 56px 84px 34px 20px 1fr auto;
+  align-items: center; gap: 12px; width: 100%; text-align: left;
+  padding: 9px 12px; border-radius: 9px; cursor: pointer;
+  background: var(--panel-2); border: 1px solid var(--line);
+  color: var(--text); transition: border-color 0.12s, background 0.12s; }
+.scan-row:hover { border-color: var(--gold); background: var(--panel-3); }
+.scan-coin { font: 800 13px var(--sans); }
+.scan-score { font: 800 13px var(--mono); }
+.scan-stat { font: 700 10.5px var(--mono); text-transform: uppercase; letter-spacing: 0.04em; }
+.scan-px { font: 700 12.5px var(--mono); color: var(--muted); justify-self: end; }
+@media (max-width: 560px) {
+  .scan-row { grid-template-columns: 48px 1fr 32px auto; }
+  .scan-row .sig-bar, .scan-row .scan-stat { display: none; }
+}
+
 /* opportunity scanner */
 .sig-score { min-width: 120px; }
 .sig-bar { display: inline-block; width: 74px; height: 6px; border-radius: 4px;

@@ -40,7 +40,8 @@ function tfLabel(tf) { return tf >= 60 ? `${tf / 60}H` : `${tf}m`; }
 
 /* ---------- boot ---------- */
 async function loadSymbols() {
-  const j = await (await fetch("/api/symbols")).json();
+  // every coin that has archived data (the pro strategy needs no ML model)
+  const j = await (await fetch("/api/symbols?data=1")).json();
   const sel = $("symbol");
   sel.innerHTML = "";
   for (const s of j.symbols) {
@@ -49,7 +50,8 @@ async function loadSymbols() {
     o.textContent = s.symbol.replace("USDT", " / USDT");
     sel.appendChild(o);
   }
-  if (j.symbols.length) sel.value = j.symbols[0].symbol;
+  if ([...sel.options].some((o) => o.value === "BTCUSDT")) sel.value = "BTCUSDT";
+  else if (j.symbols.length) sel.value = j.symbols[0].symbol;
   return j.symbols.map((s) => s.symbol);
 }
 
@@ -59,6 +61,64 @@ function loadTicker(symbols) {
      <span class="tk-px" id="tk-${s}">—</span></div>`).join("");
   document.querySelectorAll(".tk").forEach((el) =>
     el.addEventListener("click", () => { $("symbol").value = el.dataset.sym; load(); }));
+}
+
+/* ---------- opportunity scanner (all coins, ranked, self-refreshing) ---------- */
+function scanColor(r) {
+  return r === "Fire" ? "var(--gold)" : r === "Strong" ? "var(--up)"
+    : r === "Building" ? "#5b9bf5" : "var(--faint)";
+}
+async function loadScanner() {
+  try {
+    const j = await fetch("/api/signals?tf=240").then((r) => (r.ok ? r.json() : null));
+    if (j && j.rows) renderScanner(j.rows);
+  } catch (e) { /* keep last */ }
+}
+function renderScanner(rows) {
+  if (!rows.length) return;
+  // the scanner already knows every coin's live price — fill the ticker with it
+  rows.forEach((r) => { const el = $("tk-" + r.symbol); if (el) el.textContent = price(r.entry); });
+  const upd = $("scan-updated");
+  if (upd) {
+    const n = new Date();
+    upd.textContent = `updated ${String(n.getHours()).padStart(2, "0")}:${String(n.getMinutes()).padStart(2, "0")}`;
+  }
+  const t = rows[0], col = scanColor(t.rating);
+  const top = $("scan-top");
+  if (top) top.innerHTML = `<div class="sig-top ${t.bias}">
+    <div class="sig-top-l">
+      <div class="sig-top-coin">${t.symbol.replace("USDT", "")}<span> / USDT</span></div>
+      <div class="sig-top-rating" style="color:${col}">${t.rating === "Fire"
+        ? "● FIRE — entry triggered" : t.rating + " setup"} · <span class="side-${t.bias}">${t.bias === "long" ? "▲ LONG" : "▼ SHORT"}</span></div>
+    </div>
+    <div class="sig-top-score"><div class="sig-top-num" style="color:${col}">${t.score}</div><span>opportunity</span></div>
+    <div class="sig-top-lvls">
+      <div><span>Entry</span><b>${price(t.entry)}</b></div>
+      <div><span>Stop</span><b class="loss">${price(t.stop)}</b></div>
+      <div><span>Target</span><b class="win">${price(t.target)}</b></div>
+    </div>
+  </div>`;
+  const list = $("scan-list");
+  if (list) {
+    list.innerHTML = rows.map((r) => {
+      const c = scanColor(r.rating);
+      return `<button class="scan-row" data-sym="${r.symbol}">
+        <span class="scan-coin">${r.symbol.replace("USDT", "")}</span>
+        <span class="sig-bar"><i style="width:${r.score}%;background:${c}"></i></span>
+        <b class="scan-score" style="color:${c}">${r.score}</b>
+        <span class="side-${r.bias}">${r.bias === "long" ? "▲" : "▼"}</span>
+        <span class="scan-stat" style="color:${c}">${r.signal_now ? "● FIRE" : r.rating}</span>
+        <span class="scan-px">${price(r.entry)}</span>
+      </button>`;
+    }).join("");
+    list.querySelectorAll(".scan-row").forEach((b) =>
+      b.addEventListener("click", () => {
+        $("symbol").value = b.dataset.sym;
+        load();
+        const cc = document.querySelector(".chart-card");
+        if (cc) cc.scrollIntoView({ behavior: "smooth", block: "start" });
+      }));
+  }
 }
 
 /* fetch JSON with a hard timeout; returns null on timeout, error or non-2xx so a
@@ -768,4 +828,9 @@ if (chartIndBtn) chartIndBtn.addEventListener("click", openStudies);
 $("close-studies").addEventListener("click", closeStudies);
 $("studies-backdrop").addEventListener("click", closeStudies);
 
-loadSymbols().then((syms) => { loadTicker(syms); return load(); });
+loadSymbols().then((syms) => {
+  loadTicker(syms);
+  loadScanner();
+  setInterval(loadScanner, 60000);   // scanner refreshes on its own
+  return load();
+});
