@@ -75,17 +75,17 @@ async function loadScanner() {
   } catch (e) { /* keep last */ }
 }
 
-/* map a scanner indicator name -> the chart study key(s) that draw it */
+/* map a scanner indicator name -> the chart study key(s). Kept minimal (fewest
+   lines each) so the chart stays clean when it mirrors the top signals. */
 const SCAN_TO_STUDY = {
-  "RSI": ["rsi"], "Stochastic": ["stoch_k", "stoch_d"], "Stoch RSI": ["stochrsi_k"],
-  "MACD momentum": ["macd", "macd_signal", "macd_hist"],
-  "MACD cross": ["macd", "macd_signal", "macd_hist"],
-  "SuperTrend": ["supertrend"], "ADX / DMI": ["adx", "di_plus", "di_minus"],
-  "EMA trend": ["ema50", "ema200"], "VWAP": ["vwap"],
+  "RSI": ["rsi"], "Stochastic": ["stoch_k"], "Stoch RSI": ["stochrsi_k"],
+  "MACD momentum": ["macd_hist"], "MACD cross": ["macd_hist"],
+  "SuperTrend": ["supertrend"], "ADX / DMI": ["adx"],
+  "EMA trend": ["ema50"], "VWAP": ["vwap"],
   "Bollinger": ["bb_up", "bb_dn"], "CCI": ["cci"], "Williams %R": ["williams_r"],
   "Money Flow": ["mfi"], "Rate of Change": ["roc"], "Parabolic SAR": ["psar"],
   "Donchian": ["dc_up", "dc_dn"], "Ichimoku cloud": ["senkou_a", "senkou_b"],
-  "Ichimoku TK cross": ["tenkan", "kijun"], "Cumulative Delta": ["cvd"],
+  "Ichimoku TK cross": ["tenkan"], "Cumulative Delta": ["cvd"],
   "Aggressor flow": ["aggressor"], "Whale flow": ["whale_flow"],
   "Open interest": ["oi_chg"], "On-Balance Volume": ["obv"],
 };
@@ -133,12 +133,14 @@ function renderIndScan(r) {
     list.innerHTML = rows || `<div class="rp-empty" style="padding:14px">No strong signals right now.</div>`;
   }
 
-  // mirror the scanner's picks onto the chart (strategy anchors + the top signals)
-  const keys = ["pro_t3", "pro_rf"];
-  (r.top || []).forEach((t) => (SCAN_TO_STUDY[t.name] || []).forEach((k) => {
+  // mirror ONLY the firing indicators (top 4) onto the chart — clean, not cluttered
+  const keys = [];
+  (r.top || []).slice(0, 4).forEach((t) => (SCAN_TO_STUDY[t.name] || []).forEach((k) => {
     if (!keys.includes(k)) keys.push(k);
   }));
-  if (typeof applyStudyKeys === "function") applyStudyKeys(keys);
+  if (keys.length && typeof applyStudyKeys === "function") applyStudyKeys(keys);
+  // draw the scanner's own entry / stop / target on the chart
+  if (r.entry != null && typeof markLevels === "function") markLevels(r.entry, r.target, r.stop);
 }
 function renderScanner(rows) {
   if (!rows.length) return;
@@ -554,8 +556,7 @@ function renderProPlan(p) {
   $("re-take-x").textContent = `2R · then trails`;
   $("re-stop-x").textContent = `${up ? "−" : "+"}${pct(p.stop_bps)}`;
   $("re-rr").textContent = p.signal_now ? "● ENTRY NOW" : "watching";
-
-  markLevels(p.entry, target, p.stop);   // entry, the 2R target, and the initial stop
+  // chart entry/stop/target lines are owned by the opportunity scanner now
 
   const state = p.signal_now
     ? `A fresh ${p.bias} signal just fired.`

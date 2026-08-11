@@ -114,8 +114,9 @@ def api_assess(
         if hit and time.time() - hit[0] < CACHE_SECONDS:
             return JSONResponse(_clean({**hit[1], "cached": True}))
         try:
-            # bounded frame so an uncached symbol can't hang on the live bridge
-            data = A.assess(symbol, horizon, fees, minute=_market_frame(symbol, 150))
+            # bounded, small frame: features only need a few weeks, not months —
+            # 150 days made this ~15s. 25 is plenty and ~6x faster.
+            data = A.assess(symbol, horizon, fees, minute=_market_frame(symbol, 25))
         except Exception as e:
             raise HTTPException(503, f"{type(e).__name__}: {e}")
         data["fee_models"] = A.FEE_MODELS
@@ -186,7 +187,7 @@ def api_candles(
 import concurrent.futures as _futures
 
 _BRIDGE_POOL = _futures.ThreadPoolExecutor(max_workers=2)
-_BRIDGE_BUDGET = 6.0     # seconds we'll wait for the live bridge before serving archive
+_BRIDGE_BUDGET = 3.0     # seconds we'll wait for the live bridge before serving archive
 
 
 def _market_frame(symbol: str, tail_days: int = 150):

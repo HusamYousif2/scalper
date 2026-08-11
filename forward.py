@@ -20,7 +20,8 @@ import strategy_pro as SP
 
 TRACKED = ["BTCUSDT", "ETHUSDT", "SOLUSDT", "BNBUSDT",
            "XRPUSDT", "ADAUSDT", "DOGEUSDT", "LINKUSDT"]
-LOOKBACK_DAYS = 120
+LOOKBACK_DAYS = 60      # window each tick re-scans (faster than 120)
+SEED_DAYS = 55          # on first tick, seed the record with this much recent history
 
 
 def _dir():
@@ -58,10 +59,6 @@ def tick(symbol, tf=240):
     except Exception:
         state = {}
     now = int(time.time())
-    if "start_ts" not in state:
-        state["start_ts"] = now
-    start_ts = state["start_ts"]
-
     try:
         rep = SP.backtest(symbol, tf, LOOKBACK_DAYS)
     except Exception as e:
@@ -69,6 +66,11 @@ def tick(symbol, tf=240):
 
     latest = rep["to"]                       # newest exit time we have data for
     logged = {t["entry_time"] for t in _read_log(lp)}
+    # seed from recent history so it's useful immediately (also re-seeds a still-
+    # empty log, e.g. a fresh deploy); then it grows forward from here
+    if "start_ts" not in state or not logged:
+        state["start_ts"] = (latest or now) - SEED_DAYS * 86400
+    start_ts = state["start_ts"]
     added = 0
     with open(lp, "a") as f:
         for t in rep["trades_list"]:
