@@ -199,6 +199,31 @@ def _simulate(c, ind, L, S, cost_bps):
     return trades
 
 
+def current(symbol, tf=5, minute_df=None):
+    """The engine's live read on the latest candle: direction, whether a setup is
+    firing right now, and the entry / stop / target."""
+    if minute_df is None:
+        minute_df = LD.load_recent_archive(symbol, 20)
+    c = _resample(minute_df, tf)
+    ind = _indicators(c)
+    L, S = _signals(c, ind)
+    i = len(c) - 1
+    close = float(c["close"].iloc[i])
+    A = float(ind["atr"].iloc[i]) if not np.isnan(ind["atr"].iloc[i]) else close * 0.01
+    up = bool(ind["ema_f"].iloc[i] > ind["ema_s"].iloc[i])
+    bias = "long" if up else "short"
+    signal_now = bool(L[i]) if up else bool(S[i])
+    if bias == "long":
+        sl, tp = close - SL_ATR * A, close + TP_ATR * A
+    else:
+        sl, tp = close + SL_ATR * A, close - TP_ATR * A
+    return {
+        "symbol": symbol, "tf": tf, "bias": bias, "signal_now": signal_now,
+        "entry": round(close, 6), "stop": round(sl, 6), "target": round(tp, 6),
+        "rr": round(TP_ATR / SL_ATR, 2), "as_of": int(c.index[i].timestamp()),
+    }
+
+
 def run_trades(symbol, tf, days):
     tail = min(400, max(60, days + 20))
     m = LD.load_recent_archive(symbol, tail)

@@ -752,6 +752,25 @@ footer {
 /* header legend is replaced by the on-chart HUD */
 #chart-legend { display: none; }
 
+/* live high-frequency signal strip (above the chart) */
+.hf-live { display: flex; align-items: center; gap: 16px; flex-wrap: wrap;
+  padding: 8px 14px; margin: 8px 0 10px; border-radius: 10px;
+  background: var(--panel-2); border: 1px solid var(--line);
+  border-left: 3px solid var(--line); font-size: 13px; }
+.hf-live:empty { display: none; }
+.hf-live.long { border-left-color: var(--up); }
+.hf-live.short { border-left-color: var(--down); }
+.hf-live.fire { background: rgba(245,197,66,0.08); border-color: var(--gold); }
+.hfl-tag { font: 700 11px var(--mono); color: var(--gold);
+  text-transform: uppercase; letter-spacing: 0.05em; }
+.hfl-bias { font-weight: 800; }
+.hfl-lv { color: var(--muted); }
+.hfl-lv i { font-style: normal; font: 600 10px var(--mono); color: var(--faint);
+  text-transform: uppercase; margin-right: 5px; }
+.hfl-lv b { font: 700 13px var(--mono); }
+.hfl-status { margin-left: auto; font: 700 11.5px var(--mono); color: var(--muted); }
+.hf-live.fire .hfl-status { color: var(--gold); }
+
 /* opportunity scanner (main page ranked list) */
 .scan-list { display: flex; flex-direction: column; gap: 4px; margin-top: 14px; }
 .scan-row { display: grid; grid-template-columns: 56px 84px 34px 20px 1fr auto;

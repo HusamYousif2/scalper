@@ -16,12 +16,12 @@ import json
 import os
 import time
 
-import strategy_pro as SP
+import strategy_hf as HF
 
 TRACKED = ["BTCUSDT", "ETHUSDT", "SOLUSDT", "BNBUSDT",
            "XRPUSDT", "ADAUSDT", "DOGEUSDT", "LINKUSDT"]
-LOOKBACK_DAYS = 60      # window each tick re-scans (faster than 120)
-SEED_DAYS = 55          # on first tick, seed the record with this much recent history
+LOOKBACK_DAYS = 30      # window each tick re-scans (HF settles fast)
+SEED_DAYS = 7           # seed only the last week so tracking is recent
 
 
 def _dir():
@@ -50,7 +50,7 @@ def _read_log(lp):
     return out
 
 
-def tick(symbol, tf=240):
+def tick(symbol, tf=5):
     """Advance the forward log: append any newly-settled forward trades. Safe to
     call as often as you like — it dedups by entry time."""
     lp, sp = _paths(symbol, tf)
@@ -60,7 +60,7 @@ def tick(symbol, tf=240):
         state = {}
     now = int(time.time())
     try:
-        rep = SP.backtest(symbol, tf, LOOKBACK_DAYS)
+        rep = HF.backtest(symbol, tf, LOOKBACK_DAYS)
     except Exception as e:
         return {"symbol": symbol, "tf": tf, "error": f"{type(e).__name__}: {e}"}
 
@@ -117,7 +117,7 @@ def _metrics(trades):
     }
 
 
-def read(tf=240, symbols=None):
+def read(tf=5, symbols=None):
     """The merged forward record for the tracked symbols, plus per-symbol rows and
     each symbol's current open lean."""
     symbols = symbols or TRACKED
@@ -145,5 +145,5 @@ def read(tf=240, symbols=None):
     }
 
 
-def tick_all(tf=240, symbols=None):
+def tick_all(tf=5, symbols=None):
     return [tick(s, tf) for s in (symbols or TRACKED)]

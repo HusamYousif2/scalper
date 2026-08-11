@@ -139,8 +139,30 @@ function renderIndScan(r) {
     if (!keys.includes(k)) keys.push(k);
   }));
   if (keys.length && typeof applyStudyKeys === "function") applyStudyKeys(keys);
-  // draw the scanner's own entry / stop / target on the chart
-  if (r.entry != null && typeof markLevels === "function") markLevels(r.entry, r.target, r.stop);
+  // chart entry/stop/target come from the live HF signal (loadHFSignal)
+}
+
+async function loadHFSignal(sym) {
+  try {
+    const s = await fetch(`/api/hf_signal?symbol=${sym}&tf=5`).then((r) => (r.ok ? r.json() : null));
+    if (s) renderHFSignal(s);
+  } catch (e) { /* transient */ }
+}
+
+function renderHFSignal(s) {
+  const el = $("hf-live");
+  if (!el) return;
+  const up = s.bias === "long";
+  const fire = s.signal_now;
+  el.className = `hf-live ${up ? "long" : "short"}${fire ? " fire" : ""}`;
+  el.innerHTML =
+    `<span class="hfl-tag">⚡ 5m signal</span>` +
+    `<span class="side-${s.bias} hfl-bias">${up ? "▲ LONG" : "▼ SHORT"}</span>` +
+    `<span class="hfl-lv"><i>Entry</i>${price(s.entry)}</span>` +
+    `<span class="hfl-lv"><i>Stop</i><b class="down">${price(s.stop)}</b></span>` +
+    `<span class="hfl-lv"><i>Target</i><b class="up">${price(s.target)}</b></span>` +
+    `<span class="hfl-status">${fire ? "● FIRING NOW" : "watching · " + s.rr + ":1"}</span>`;
+  if (typeof markLevels === "function") markLevels(s.entry, s.target, s.stop);
 }
 function renderScanner(rows) {
   if (!rows.length) return;
@@ -249,6 +271,7 @@ async function load() {
     // the pro strategy (your indicators) drives the read on every timeframe
     safe("plan", () => fetchProPlan(sym, TF));
     loadIndScan();   // full indicator-suite read for this coin
+    loadHFSignal(sym);   // live high-frequency signal + chart entry/stop/target
     safe("ladder", () => renderLadder(a));
     safe("pulse", () => renderPulse(a));
     safe("signals", () => renderSignals(a));
@@ -901,5 +924,6 @@ loadSymbols().then((syms) => {
   loadScanner();
   setInterval(loadScanner, 60000);       // cross-coin scanner refreshes each minute
   setInterval(loadIndScan, 300000);      // indicator-suite scan every 5 minutes
+  setInterval(() => loadHFSignal($("symbol").value || "BTCUSDT"), 120000);  // HF signal every 2 min
   return load();
 });

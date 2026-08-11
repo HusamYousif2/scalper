@@ -512,8 +512,27 @@ def api_indicator_scan(symbol: str = Query("BTCUSDT"), tf: int = Query(15)):
         return JSONResponse(_clean({**rep, "cached": False}))
 
 
+@app.get("/api/hf_signal")
+def api_hf_signal(symbol: str = Query("BTCUSDT"), tf: int = Query(5)):
+    """The high-frequency engine's live read for one coin: direction, whether a
+    setup is firing, and entry / stop / target."""
+    import strategy_hf as HF
+
+    key = ("hfsig", symbol, tf)
+    hit = _cache.get(key)
+    if hit and time.time() - hit[0] < 60:
+        return JSONResponse(_clean({**hit[1], "cached": True}))
+    with _lock_for(key):
+        try:
+            rep = HF.current(symbol, tf, _market_frame(symbol, 20))
+        except Exception as e:
+            raise HTTPException(503, f"{type(e).__name__}: {e}")
+        _cache[key] = (time.time(), rep)
+        return JSONResponse(_clean({**rep, "cached": False}))
+
+
 @app.get("/api/forward")
-def api_forward(tf: int = Query(240)):
+def api_forward(tf: int = Query(5)):
     """The live forward test: trades frozen as they settle in real time (BTC+ETH),
     net of all costs. Advances the log on each call, then returns the record."""
     import forward as FW

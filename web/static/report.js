@@ -283,7 +283,7 @@ function renderHF(h) {
 
 async function loadForward() {
   try {
-    const f = await fetch("/api/forward?tf=240").then((r) => {
+    const f = await fetch("/api/forward?tf=5").then((r) => {
       if (!r.ok) throw new Error(r.statusText); return r.json();
     });
     renderForward(f);
