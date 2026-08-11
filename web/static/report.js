@@ -239,6 +239,48 @@ function renderSignals(rows) {
   }).join("");
 }
 
+async function loadHF() {
+  try {
+    const h = await fetch("/api/hf_portfolio?tf=5&days=90").then((r) => {
+      if (!r.ok) throw new Error(r.statusText); return r.json();
+    });
+    renderHF(h);
+  } catch (e) { $("hf-badge").textContent = "unavailable"; }
+}
+
+function renderHF(h) {
+  const m = h.metrics || {};
+  const good = m.total_r > 0;
+  const wb = $("hf-badge");
+  wb.textContent = `${fmtR(m.total_r)} gross · ${h.per_day}/day`;
+  wb.className = `win-badge ${good ? "good" : "bad"}`;
+  $("hf-window").textContent = h.from && h.to ? `${dOnly(h.from)} → ${dOnly(h.to)} · 5m` : "5m · all coins";
+
+  const net = $("hf-net");
+  net.textContent = fmtR(m.total_r);
+  net.className = `t-val ${good ? "up" : "down"}`;
+  $("hf-trades").textContent = m.trades;
+  $("hf-perday").textContent = `${h.per_day} per day, all coins`;
+  $("hf-win").textContent = `${m.win_rate}%`;
+  $("hf-pf").textContent = m.profit_factor == null ? "∞" : m.profit_factor;
+  $("hf-dd").textContent = `${Number(m.max_drawdown_r).toFixed(0)}R`;
+  $("hf-days").textContent = `${h.days}d`;
+
+  drawEquity($("hf-equity"), m.equity || []);
+
+  $("hf-persym").innerHTML = (h.per_symbol || []).map((s) => {
+    const pos = s.total_r >= 0;
+    return `<tr>
+      <td>${s.symbol.replace("USDT", "")}</td>
+      <td>${s.trades}</td>
+      <td>${s.per_day}</td>
+      <td>${s.win_rate}%</td>
+      <td class="${pos ? "win" : "loss"}">${fmtR(s.total_r)}</td>
+      <td>${s.profit_factor == null ? "∞" : s.profit_factor}</td>
+    </tr>`;
+  }).join("");
+}
+
 async function loadForward() {
   try {
     const f = await fetch("/api/forward?tf=240").then((r) => {
@@ -388,8 +430,9 @@ function reorderForControls() {
   await loadSymbols();
   load();
   loadSignals();
+  loadHF();
   loadPortfolio();
   loadForward();
   setInterval(loadSignals, 60000);                       // scanner every minute
-  setInterval(() => { loadPortfolio(); loadForward(); }, 300000);   // the rest every 5 min
+  setInterval(() => { loadHF(); loadPortfolio(); loadForward(); }, 300000);   // rest every 5 min
 })();

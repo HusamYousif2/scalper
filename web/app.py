@@ -449,6 +449,27 @@ def api_portfolio(tf: int = Query(240), days: int = Query(190),
         return JSONResponse(_clean({**rep, "cached": False}))
 
 
+@app.get("/api/hf_portfolio")
+def api_hf_portfolio(tf: int = Query(5), days: int = Query(90), symbols: str = Query("")):
+    """The high-frequency engine across the basket — many trades a day, judged on
+    gross P/L (costs excluded by mandate). Archive-only."""
+    import strategy_hf as HF
+
+    days = max(14, min(days, 400))
+    syms = [s.strip().upper() for s in symbols.split(",") if s.strip()] or HF.DEFAULT_SYMS
+    key = ("hfport", tf, days, tuple(syms))
+    hit = _cache.get(key)
+    if hit and time.time() - hit[0] < 600:
+        return JSONResponse(_clean({**hit[1], "cached": True}))
+    with _lock_for(key):
+        try:
+            rep = HF.portfolio(tf=tf, days=days, symbols=syms)
+        except Exception as e:
+            raise HTTPException(503, f"{type(e).__name__}: {e}")
+        _cache[key] = (time.time(), rep)
+        return JSONResponse(_clean({**rep, "cached": False}))
+
+
 @app.get("/api/signals")
 def api_signals(tf: int = Query(240)):
     """The pro strategy's current read on every symbol — where to act right now:

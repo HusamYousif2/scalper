@@ -100,6 +100,41 @@
       </div>
     </div>
 
+    <!-- ===== HIGH-FREQUENCY ENGINE (many trades/day, gross) ===== -->
+    <div class="rp-card" id="hf-card">
+      <div class="rp-head">
+        <h2>High-frequency engine</h2>
+        <span class="win-badge" id="hf-badge">—</span>
+        <span class="rp-window" id="hf-window">5m · all coins</span>
+      </div>
+      <p class="sub" style="margin:-4px 0 14px">For the 24/7 trader — <b>many trades a
+        day</b> across the basket, from price action, market structure, momentum and
+        volume. Shown as <b>GROSS</b> profit/loss in R (costs excluded, as requested).
+        High frequency means high variance — watch the drawdown.</p>
+      <div class="rp-tiles">
+        <div class="rp-tile"><div class="t-lab">Gross result</div>
+          <div class="t-val" id="hf-net">—</div><div class="t-sub">in R, all coins</div></div>
+        <div class="rp-tile"><div class="t-lab">Trades</div>
+          <div class="t-val" id="hf-trades">—</div><div class="t-sub" id="hf-perday"></div></div>
+        <div class="rp-tile"><div class="t-lab">Win rate</div>
+          <div class="t-val" id="hf-win">—</div><div class="t-sub">at ~2:1 reward/risk</div></div>
+        <div class="rp-tile"><div class="t-lab">Profit factor</div>
+          <div class="t-val" id="hf-pf">—</div><div class="t-sub">gross win ÷ gross loss</div></div>
+        <div class="rp-tile"><div class="t-lab">Max drawdown</div>
+          <div class="t-val down" id="hf-dd">—</div><div class="t-sub">worst dip, in R</div></div>
+        <div class="rp-tile"><div class="t-lab">Window</div>
+          <div class="t-val" id="hf-days" style="font-size:20px">90d</div><div class="t-sub">5-minute chart</div></div>
+      </div>
+      <div class="eq-wrap"><svg class="eq" id="hf-equity" preserveAspectRatio="none"></svg></div>
+      <div class="tbl-scroll" style="margin-top:14px">
+        <table class="rp-tbl">
+          <thead><tr><th>Coin</th><th>Trades</th><th>/day</th><th>Win rate</th>
+            <th>Gross R</th><th>PF</th></tr></thead>
+          <tbody id="hf-persym"></tbody>
+        </table>
+      </div>
+    </div>
+
     <!-- ===== PORTFOLIO (pro 4H strategy, all symbols) ===== -->
     <div class="rp-card" id="pf-card">
       <div class="rp-head">
