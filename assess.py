@@ -214,9 +214,10 @@ def resolve_cost(fees) -> tuple[float | None, str]:
 
 
 def assess(symbol: str, horizon: int = 15, fees=DEFAULT_FEES,
-           live_hours: float = 3.0) -> dict:
+           live_hours: float = 3.0, minute=None) -> dict:
     mdl, meta = load_model(symbol, horizon)
-    minute = LD.combined_frame_cached(symbol, live_hours=live_hours)
+    if minute is None:
+        minute = LD.combined_frame_cached(symbol, live_hours=live_hours)
     df, m = build_live_features(symbol, horizon, minute)
 
     cols = meta["features"]

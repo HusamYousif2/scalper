@@ -114,7 +114,8 @@ def api_assess(
         if hit and time.time() - hit[0] < CACHE_SECONDS:
             return JSONResponse(_clean({**hit[1], "cached": True}))
         try:
-            data = A.assess(symbol, horizon, fees)
+            # bounded frame so an uncached symbol can't hang on the live bridge
+            data = A.assess(symbol, horizon, fees, minute=_market_frame(symbol, 150))
         except Exception as e:
             raise HTTPException(503, f"{type(e).__name__}: {e}")
         data["fee_models"] = A.FEE_MODELS
