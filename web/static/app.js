@@ -75,6 +75,21 @@ async function loadScanner() {
   } catch (e) { /* keep last */ }
 }
 
+/* map a scanner indicator name -> the chart study key(s) that draw it */
+const SCAN_TO_STUDY = {
+  "RSI": ["rsi"], "Stochastic": ["stoch_k", "stoch_d"], "Stoch RSI": ["stochrsi_k"],
+  "MACD momentum": ["macd", "macd_signal", "macd_hist"],
+  "MACD cross": ["macd", "macd_signal", "macd_hist"],
+  "SuperTrend": ["supertrend"], "ADX / DMI": ["adx", "di_plus", "di_minus"],
+  "EMA trend": ["ema50", "ema200"], "VWAP": ["vwap"],
+  "Bollinger": ["bb_up", "bb_dn"], "CCI": ["cci"], "Williams %R": ["williams_r"],
+  "Money Flow": ["mfi"], "Rate of Change": ["roc"], "Parabolic SAR": ["psar"],
+  "Donchian": ["dc_up", "dc_dn"], "Ichimoku cloud": ["senkou_a", "senkou_b"],
+  "Ichimoku TK cross": ["tenkan", "kijun"], "Cumulative Delta": ["cvd"],
+  "Aggressor flow": ["aggressor"], "Whale flow": ["whale_flow"],
+  "Open interest": ["oi_chg"], "On-Balance Volume": ["obv"],
+};
+
 /* ---------- AI indicator scan (full suite, one coin, every 5 min) ---------- */
 async function loadIndScan() {
   const sym = $("symbol").value || "BTCUSDT";
@@ -117,6 +132,13 @@ function renderIndScan(r) {
     }).join("");
     list.innerHTML = rows || `<div class="rp-empty" style="padding:14px">No strong signals right now.</div>`;
   }
+
+  // mirror the scanner's picks onto the chart (strategy anchors + the top signals)
+  const keys = ["pro_t3", "pro_rf"];
+  (r.top || []).forEach((t) => (SCAN_TO_STUDY[t.name] || []).forEach((k) => {
+    if (!keys.includes(k)) keys.push(k);
+  }));
+  if (typeof applyStudyKeys === "function") applyStudyKeys(keys);
 }
 function renderScanner(rows) {
   if (!rows.length) return;

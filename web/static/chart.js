@@ -361,6 +361,19 @@ function updateHudValues(kline) {
   }
 }
 
+/* Make the chart show exactly this set of studies — used by the AI scanner so the
+   chart mirrors the indicators it is currently acting on. Rebuilds only when the
+   set actually changes, to avoid needless flicker. */
+function applyStudyKeys(keys) {
+  const want = new Set((keys || []).filter((k) => STUDIES[k]));
+  if (!want.size) return false;
+  const same = want.size === ACTIVE.size && [...want].every((k) => ACTIVE.has(k));
+  if (same) return false;
+  ACTIVE = want;
+  if (LAST_DATA) buildChart(LAST_DATA);
+  return true;
+}
+
 /* entry / take-profit / stop as horizontal price-line overlays */
 function markLevels(entry, tp, sl) {
   SAVED_LEVELS = [entry, tp, sl];
