@@ -512,6 +512,32 @@ def api_indicator_scan(symbol: str = Query("BTCUSDT"), tf: int = Query(15)):
         return JSONResponse(_clean({**rep, "cached": False}))
 
 
+@app.get("/api/price")
+def api_price(symbol: str = Query("BTCUSDT")):
+    """The latest price — a fast poll fallback for when the browser can't open a
+    Binance WebSocket. Cached 2s."""
+    import requests
+
+    key = ("price", symbol)
+    hit = _cache.get(key)
+    if hit and time.time() - hit[0] < 2:
+        return JSONResponse({**hit[1], "cached": True})
+    out = None
+    try:
+        r = requests.get("https://fapi.binance.com/fapi/v1/ticker/price",
+                         params={"symbol": symbol}, timeout=4)
+        out = {"symbol": symbol, "price": float(r.json()["price"])}
+    except Exception:
+        try:
+            import live_data as LD
+            m = LD.load_recent_archive(symbol, 2)
+            out = {"symbol": symbol, "price": float(m["close"].iloc[-1])}
+        except Exception as e:
+            raise HTTPException(503, f"{type(e).__name__}: {e}")
+    _cache[key] = (time.time(), out)
+    return JSONResponse(out)
+
+
 @app.get("/api/hf_signal")
 def api_hf_signal(symbol: str = Query("BTCUSDT"), tf: int = Query(5)):
     """The high-frequency engine's live read for one coin: direction, whether a

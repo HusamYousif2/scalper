@@ -36,6 +36,38 @@ let TF = 15;
    current as new candles form, without a full page reload */
 let PLAN_POLL = null;
 const PLAN_POLL_MS = 60000;     // re-analyse once a minute — calm, not twitchy
+let LIVE_PRO = null, LIVE_HF = null, LAST_LEVEL_DRAW = 0;
+
+/* called on every live price tick from the Binance WebSocket (chart.js) — moves
+   the entry/stop/target of both reads with the price, in real time */
+window.onLivePrice = function (sym, px) {
+  if (!px || sym !== ($("symbol") ? $("symbol").value : sym)) return;
+  const tk = $("tk-" + sym); if (tk) tk.textContent = price(px);
+
+  if (LIVE_PRO && LIVE_PRO.atr > 0) {
+    const up = LIVE_PRO.bias === "long";
+    const risk = LIVE_PRO.stop_atr * LIVE_PRO.atr;
+    if ($("re-entry")) $("re-entry").textContent = price(px);
+    if ($("re-stop")) $("re-stop").textContent = price(up ? px - risk : px + risk);
+    if ($("re-take")) $("re-take").textContent = price(up ? px + 2 * risk : px - 2 * risk);
+  }
+  if (LIVE_HF) {
+    const up = LIVE_HF.bias === "long";
+    const stop = up ? px - LIVE_HF.slOff : px + LIVE_HF.slOff;
+    const target = up ? px + LIVE_HF.tpOff : px - LIVE_HF.tpOff;
+    const el = $("hf-live");
+    if (el) {
+      const lv = el.querySelectorAll(".hfl-lv");
+      if (lv[0]) lv[0].innerHTML = `<i>Entry</i>${price(px)}`;
+      if (lv[1]) lv[1].innerHTML = `<i>Stop</i><b class="down">${price(stop)}</b>`;
+      if (lv[2]) lv[2].innerHTML = `<i>Target</i><b class="up">${price(target)}</b>`;
+    }
+    // redraw the chart lines at most every 2s (overlay churn is expensive)
+    if (typeof markLevels === "function" && Date.now() - LAST_LEVEL_DRAW > 2000) {
+      markLevels(px, target, stop); LAST_LEVEL_DRAW = Date.now();
+    }
+  }
+};
 function tfLabel(tf) { return tf >= 60 ? `${tf / 60}H` : `${tf}m`; }
 
 /* ---------- boot ---------- */
@@ -152,6 +184,7 @@ async function loadHFSignal(sym) {
 function renderHFSignal(s) {
   const el = $("hf-live");
   if (!el) return;
+  LIVE_HF = { bias: s.bias, slOff: Math.abs(s.entry - s.stop), tpOff: Math.abs(s.target - s.entry) };
   const up = s.bias === "long";
   const fire = s.signal_now;
   el.className = `hf-live ${up ? "long" : "short"}${fire ? " fire" : ""}`;
@@ -268,6 +301,7 @@ async function load() {
     // rest of the page.
     const safe = (label, fn) => { try { fn(); } catch (e) { console.warn(label, e); } };
     safe("chart", () => { buildChart(chartData); buildStudyMenu(() => buildChart(chartData)); });
+    if (typeof connectLiveFeed === "function") connectLiveFeed(sym, TF);   // real-time WS
     // the pro strategy (your indicators) drives the read on every timeframe
     safe("plan", () => fetchProPlan(sym, TF));
     loadIndScan();   // full indicator-suite read for this coin
@@ -553,6 +587,7 @@ function renderProPlan(p) {
   const card = $("rule-card");
   if (!card || !p) return;
   const up = p.bias === "long";
+  LIVE_PRO = { bias: p.bias, stop_atr: p.stop_atr || 2, atr: p.atr || 0 };   // for live ticks
   card.className = `card re-${p.bias}`;
   const V = $("re-verdict");
   V.textContent = up ? "▲ LONG" : "▼ SHORT";

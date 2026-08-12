@@ -361,6 +361,57 @@ function updateHudValues(kline) {
   }
 }
 
+/* ---------- live feed: a Binance WebSocket that updates the last candle every
+   tick, so the chart and the levels move in real time (not once a minute) ---- */
+let LIVE_WS = null, LIVE_SYM = null, LIVE_TF = null, LIVE_LAST_MSG = 0, LIVE_POLL = null;
+
+function tfInterval(tf) {
+  return tf >= 1440 ? (tf / 1440) + "d" : tf >= 60 ? (tf / 60) + "h" : tf + "m";
+}
+
+function disconnectLiveFeed() {
+  if (LIVE_WS) { try { LIVE_WS.onclose = null; LIVE_WS.close(); } catch (e) {} LIVE_WS = null; }
+  if (LIVE_POLL) { clearInterval(LIVE_POLL); LIVE_POLL = null; }
+}
+
+function connectLiveFeed(symbol, tf) {
+  if (LIVE_WS && LIVE_SYM === symbol && LIVE_TF === tf) return;   // already streaming this
+  disconnectLiveFeed();
+  LIVE_SYM = symbol; LIVE_TF = tf;
+  const url = `wss://fstream.binance.com/ws/${symbol.toLowerCase()}@kline_${tfInterval(tf)}`;
+  let ws;
+  try { ws = new WebSocket(url); } catch (e) { return; }
+  LIVE_WS = ws;
+  ws.onmessage = (ev) => {
+    if (ws !== LIVE_WS) return;
+    LIVE_LAST_MSG = Date.now();
+    let m; try { m = JSON.parse(ev.data); } catch (e) { return; }
+    const k = m.k; if (!k) return;
+    const bar = { timestamp: +k.t, open: +k.o, high: +k.h, low: +k.l,
+                  close: +k.c, volume: +k.v };
+    if (CHART) { try { CHART.updateData(bar); } catch (e) {} }
+    const last = LAST_KLINES[LAST_KLINES.length - 1];
+    if (last && last.timestamp === bar.timestamp) Object.assign(last, bar);
+    else if (last && bar.timestamp > last.timestamp) LAST_KLINES.push(bar);
+    updateHudValues(LAST_KLINES[LAST_KLINES.length - 1]);
+    if (typeof window.onLivePrice === "function") window.onLivePrice(symbol, bar.close);
+  };
+  ws.onclose = () => {   // auto-reconnect — keep the channel open all the time
+    if (ws === LIVE_WS) setTimeout(() => {
+      if (ws === LIVE_WS && LIVE_SYM === symbol && LIVE_TF === tf) connectLiveFeed(symbol, tf);
+    }, 2500);
+  };
+
+  // fallback: if the WS is silent (blocked), poll a light price endpoint every 4s
+  LIVE_POLL = setInterval(async () => {
+    if (Date.now() - LIVE_LAST_MSG < 6000) return;   // WS is live — no need
+    try {
+      const r = await fetch(`/api/price?symbol=${symbol}`).then((x) => (x.ok ? x.json() : null));
+      if (r && r.price && typeof window.onLivePrice === "function") window.onLivePrice(symbol, r.price);
+    } catch (e) { /* ignore */ }
+  }, 4000);
+}
+
 /* Make the chart show exactly this set of studies — used by the AI scanner so the
    chart mirrors the indicators it is currently acting on. Rebuilds only when the
    set actually changes, to avoid needless flicker. */
