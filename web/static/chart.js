@@ -363,10 +363,39 @@ function updateHudValues(kline) {
 
 /* ---------- live feed: a Binance WebSocket that updates the last candle every
    tick, so the chart and the levels move in real time (not once a minute) ---- */
-let LIVE_WS = null, LIVE_SYM = null, LIVE_TF = null, LIVE_LAST_MSG = 0, LIVE_POLL = null;
+let LIVE_WS = null, LIVE_SYM = null, LIVE_TF = null;
+let LIVE_LAST_MSG = 0, LIVE_POLL = null, LIVE_ACTIVE = 0, LIVE_HEARTBEAT = null;
 
 function tfInterval(tf) {
   return tf >= 1440 ? (tf / 1440) + "d" : tf >= 60 ? (tf / 60) + "h" : tf + "m";
+}
+
+/* push a fresh price into the LAST candle so the chart itself moves in real time
+   (used by the poll fallback; the WS already has full OHLC) */
+function applyLivePrice(symbol, px) {
+  LIVE_ACTIVE = Date.now();
+  const last = LAST_KLINES[LAST_KLINES.length - 1];
+  if (last && CHART) {
+    last.close = px;
+    last.high = Math.max(last.high, px);
+    last.low = Math.min(last.low, px);
+    try {
+      CHART.updateData({ timestamp: last.timestamp, open: last.open,
+        high: last.high, low: last.low, close: px, volume: last.volume });
+    } catch (e) { /* ignore */ }
+    updateHudValues(last);
+  }
+  if (typeof window.onLivePrice === "function") window.onLivePrice(symbol, px);
+}
+
+/* the pulsing ● LIVE badge: green when the feed is fresh, dim when stale */
+function startLiveHeartbeat() {
+  if (LIVE_HEARTBEAT) return;
+  LIVE_HEARTBEAT = setInterval(() => {
+    const dot = document.getElementById("live-dot");
+    if (!dot) return;
+    dot.classList.toggle("on", Date.now() - LIVE_ACTIVE < 8000);
+  }, 1500);
 }
 
 function disconnectLiveFeed() {
@@ -382,9 +411,10 @@ function connectLiveFeed(symbol, tf) {
   let ws;
   try { ws = new WebSocket(url); } catch (e) { return; }
   LIVE_WS = ws;
+  startLiveHeartbeat();
   ws.onmessage = (ev) => {
     if (ws !== LIVE_WS) return;
-    LIVE_LAST_MSG = Date.now();
+    LIVE_LAST_MSG = LIVE_ACTIVE = Date.now();
     let m; try { m = JSON.parse(ev.data); } catch (e) { return; }
     const k = m.k; if (!k) return;
     const bar = { timestamp: +k.t, open: +k.o, high: +k.h, low: +k.l,
@@ -407,7 +437,7 @@ function connectLiveFeed(symbol, tf) {
     if (Date.now() - LIVE_LAST_MSG < 6000) return;   // WS is live — no need
     try {
       const r = await fetch(`/api/price?symbol=${symbol}`).then((x) => (x.ok ? x.json() : null));
-      if (r && r.price && typeof window.onLivePrice === "function") window.onLivePrice(symbol, r.price);
+      if (r && r.price) applyLivePrice(symbol, r.price);   // moves the chart candle too
     } catch (e) { /* ignore */ }
   }, 4000);
 }

@@ -752,6 +752,16 @@ footer {
 /* header legend is replaced by the on-chart HUD */
 #chart-legend { display: none; }
 
+/* pulsing live-feed badge */
+.live-dot { font: 700 10px var(--mono); letter-spacing: 0.08em; color: var(--faint);
+  border: 1px solid var(--line); border-radius: 20px; padding: 2px 9px; opacity: 0.55; }
+.live-dot.on { color: var(--up); border-color: rgba(38,166,154,0.45); opacity: 1;
+  animation: livepulse 1.6s ease-in-out infinite; }
+@keyframes livepulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(38,166,154,0.4); }
+  50% { box-shadow: 0 0 0 6px rgba(38,166,154,0); }
+}
+
 /* live high-frequency signal strip (above the chart) */
 .hf-live { display: flex; align-items: center; gap: 16px; flex-wrap: wrap;
   padding: 8px 14px; margin: 8px 0 10px; border-radius: 10px;
