@@ -23,16 +23,20 @@ import pandas as pd
 import live_data as LD
 from indicators import _ema, _rma, _true_range
 
-# tunables (grid-tested on the 8-coin basket, 5m, 90d, gross)
+# tunables (grid-tested on the 8-coin basket, 5m, 90d, gross → PF 1.25)
 EMA_FAST, EMA_SLOW = 20, 50
 RSI_N = 14
 ATR_N = 14
-TP_ATR = 2.0           # target distance (2:1 reward:risk)
+TP_ATR = 2.5           # target distance (2.5:1 reward:risk)
 SL_ATR = 1.0           # stop distance
-MAX_BARS = 40          # time stop (bars)
+MAX_BARS = 48          # time stop (bars)
 SWING = 10             # bars each side for a swing pivot / structure break
-RVOL_MIN = 1.2         # only take setups on above-average (spiking) volume
+RVOL_MIN = 1.8         # only take setups on a real volume spike
 COST_BPS = 0.0         # per the mandate: judge on P/L, not cost (set >0 to include)
+HTF_EMA = 200          # higher-timeframe trend filter: trade only with it
+TRAIL_ATR = 0.0        # fixed target beat a trailing stop on this engine
+RSI_LONG, RSI_SHORT = 55, 45   # momentum must be clearly on-side
+ADX_MIN = 22.0         # trend-strength gate — skip chop (the big quality win)
 
 
 def _agg(trades, rkey="r_gross"):
@@ -116,6 +120,7 @@ def _indicators(c):
     out = pd.DataFrame(index=c.index)
     out["ema_f"] = _ema(close, EMA_FAST)
     out["ema_s"] = _ema(close, EMA_SLOW)
+    out["ema_h"] = _ema(close, HTF_EMA) if HTF_EMA else close * 0
     macd = _ema(close, 12) - _ema(close, 26)
     out["macd_h"] = macd - _ema(macd, 9)
     d = close.diff()
@@ -124,6 +129,14 @@ def _indicators(c):
     out["rsi"] = 100 - 100 / (1 + gain / loss.replace(0, np.nan))
     out["atr"] = _rma(_true_range(c), ATR_N)
     out["rvol"] = vol / vol.rolling(30).mean()
+    # ADX (trend strength) — filters out chop where scalps whipsaw
+    up_m = high.diff(); dn_m = -low.diff()
+    plus = pd.Series(np.where((up_m > dn_m) & (up_m > 0), up_m, 0.0), index=c.index)
+    minus = pd.Series(np.where((dn_m > up_m) & (dn_m > 0), dn_m, 0.0), index=c.index)
+    atr14 = _rma(_true_range(c), 14).replace(0, np.nan)
+    pdi = 100 * _rma(plus, 14) / atr14
+    mdi = 100 * _rma(minus, 14) / atr14
+    out["adx"] = _rma(100 * (pdi - mdi).abs() / (pdi + mdi).replace(0, np.nan), 14)
     # market structure: most-recent confirmed swing high / low
     out["swing_hi"] = high.rolling(SWING * 2 + 1, center=True).max().shift(SWING)
     out["swing_lo"] = low.rolling(SWING * 2 + 1, center=True).min().shift(SWING)
@@ -138,18 +151,26 @@ def _indicators(c):
 def _signals(c, ind):
     close = c["close"].to_numpy()
     ef = ind["ema_f"].to_numpy(); es = ind["ema_s"].to_numpy()
+    eh = ind["ema_h"].to_numpy()
     mh = ind["macd_h"].to_numpy(); rsi = ind["rsi"].to_numpy()
     rvol = ind["rvol"].to_numpy(); cvd = ind["cvd_slope"].to_numpy()
+    adx = ind["adx"].to_numpy()
     n = len(close)
     L = np.zeros(n, bool); S = np.zeros(n, bool)
     for i in range(2, n):
         if np.isnan(ef[i]) or np.isnan(mh[i]) or np.isnan(rsi[i]):
             continue
         up = ef[i] > es[i]
-        vol_ok = not np.isnan(rvol[i]) and rvol[i] >= RVOL_MIN
+        vol_ok = (not np.isnan(rvol[i]) and rvol[i] >= RVOL_MIN
+                  and (ADX_MIN <= 0 or (not np.isnan(adx[i]) and adx[i] >= ADX_MIN)))
+        # higher-timeframe trend filter: don't fight the bigger trend
+        htf_up = (close[i] > eh[i]) if HTF_EMA else True
+        htf_dn = (close[i] < eh[i]) if HTF_EMA else True
         # fresh momentum impulse in the trend direction
-        long_imp = mh[i] > 0 and mh[i - 1] <= 0 and up and rsi[i] > 48 and close[i] > ef[i]
-        short_imp = mh[i] < 0 and mh[i - 1] >= 0 and (not up) and rsi[i] < 52 and close[i] < ef[i]
+        long_imp = (mh[i] > 0 and mh[i - 1] <= 0 and up and rsi[i] > RSI_LONG
+                    and close[i] > ef[i] and htf_up)
+        short_imp = (mh[i] < 0 and mh[i - 1] >= 0 and (not up) and rsi[i] < RSI_SHORT
+                     and close[i] < ef[i] and htf_dn)
         L[i] = long_imp and vol_ok and cvd[i] >= 0
         S[i] = short_imp and vol_ok and cvd[i] <= 0
     return L, S
@@ -167,22 +188,28 @@ def _simulate(c, ind, L, S, cost_bps):
             i += 1
             continue
         entry, A = close[i], atr[i]
-        if side == "long":
-            tp, sl = entry + TP_ATR * A, entry - SL_ATR * A
-        else:
-            tp, sl = entry - TP_ATR * A, entry + SL_ATR * A
         risk = SL_ATR * A
+        if side == "long":
+            tp, sl, peak = entry + TP_ATR * A, entry - SL_ATR * A, high[i]
+        else:
+            tp, sl, peak = entry - TP_ATR * A, entry + SL_ATR * A, low[i]
         exit_i = exit_px = None
         for j in range(i + 1, min(n - 1, i + MAX_BARS) + 1):
             if side == "long":
+                if TRAIL_ATR > 0:                    # trail: let winners run
+                    peak = max(peak, high[j])
+                    sl = max(sl, peak - TRAIL_ATR * A)
                 if low[j] <= sl:
                     exit_i, exit_px = j, sl; break
-                if high[j] >= tp:
+                if TRAIL_ATR == 0 and high[j] >= tp:
                     exit_i, exit_px = j, tp; break
             else:
+                if TRAIL_ATR > 0:
+                    peak = min(peak, low[j])
+                    sl = min(sl, peak + TRAIL_ATR * A)
                 if high[j] >= sl:
                     exit_i, exit_px = j, sl; break
-                if low[j] <= tp:
+                if TRAIL_ATR == 0 and low[j] <= tp:
                     exit_i, exit_px = j, tp; break
         if exit_i is None:
             exit_i, exit_px = min(n - 1, i + MAX_BARS), close[min(n - 1, i + MAX_BARS)]
