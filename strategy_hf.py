@@ -69,13 +69,20 @@ def _agg(trades, rkey="r_gross"):
     return {
         "trades": n, "wins": len(wins), "losses": n - len(wins),
         "win_rate": round(len(wins) / n * 100, 1),
-        "total_r": round(sum(vals), 2), "avg_r": round(sum(vals) / n, 3),
+        "total_r": round(sum(vals), 2),
+        "avg_r": round(sum(vals) / n, 3),
+        "expectancy_r": round(sum(vals) / n, 3),   # alias — the report calls it this
         "profit_factor": round(gw / gl, 2) if gl > 0 else None,
         "max_drawdown_r": round(mdd, 2), "equity": eq,
     }
 
 
 def backtest(symbol, tf, days):
+    # each call re-applies the tf preset so concurrent callers can't taint each
+    # other's module-level params (was a real bug: the report requesting a 15m
+    # backtest was rewriting ADX/RVOL and the next forward tick on 5m would use
+    # the wrong filters)
+    apply_preset(tf)
     trades = run_trades(symbol, tf, days)
     m = _agg(trades, "r_gross")
     span = max(1, days)
@@ -113,6 +120,7 @@ def apply_preset(tf):
 
 
 def portfolio(tf=5, days=90, symbols=None):
+    apply_preset(tf)   # thread-safe re-apply so a stray backtest can't taint us
     symbols = symbols or DEFAULT_SYMS
     allt, per = [], []
     for s in symbols:
@@ -292,6 +300,7 @@ def _simulate(c, ind, L, S, cost_bps):
 def current(symbol, tf=5, minute_df=None):
     """The engine's live read on the latest candle: direction, whether a setup is
     firing right now, and the entry / stop / target."""
+    apply_preset(tf)   # thread-safe re-apply
     if minute_df is None:
         minute_df = LD.load_recent_archive(symbol, 20)
     c = _resample(minute_df, tf)

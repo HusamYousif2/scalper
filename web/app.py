@@ -384,8 +384,7 @@ def api_backtest(symbol: str = Query("BTCUSDT"), tf: int = Query(15),
             # pro strategy owns the daily (where HF has almost no setups)
             if tf in (5, 15, 60, 240):
                 import strategy_hf as HF
-                HF.apply_preset(tf)
-                rep = HF.backtest(symbol, tf, days)
+                rep = HF.backtest(symbol, tf, days)   # HF auto-applies tf preset
             else:
                 rep = SP.backtest(symbol, tf, days)
         except Exception as e:
