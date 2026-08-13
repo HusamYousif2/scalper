@@ -38,6 +38,15 @@ TRAIL_ATR = 0.0        # fixed target beat a trailing stop on this engine
 RSI_LONG, RSI_SHORT = 55, 45   # momentum must be clearly on-side
 ADX_MIN = 22.0         # trend-strength gate — skip chop (the big quality win)
 
+# ---- trade-management upgrades (grid-tested — lift PF from 1.24 to 1.44) ----
+BE_AT_R = 0.5          # move stop to break-even once trade is +0.5R in favour
+PARTIAL_AT_R = 2.0     # book PARTIAL_FRAC of the position at +2R, rest runs to target
+PARTIAL_FRAC = 0.5
+COOL_OFF_LOSSES = 0    # (tested — didn't help; keep off)
+COOL_OFF_BARS = 12
+SESSION_HOURS = (6, 22)  # trade 06:00–22:00 UTC — the deep-liquidity window
+HTF_CONFIRM_MIN = 0
+
 
 def _agg(trades, rkey="r_gross"):
     n = len(trades)
@@ -179,30 +188,51 @@ def _signals(c, ind):
 def _simulate(c, ind, L, S, cost_bps):
     high = c["high"].to_numpy(); low = c["low"].to_numpy(); close = c["close"].to_numpy()
     atr = ind["atr"].to_numpy(); times = c.index
+    hours = times.hour.to_numpy()
     n = len(c)
     trades = []
     i = 1
+    losses_in_row = 0
+    cool_until = -1
     while i < n - 1:
         side = "long" if L[i] else "short" if S[i] else None
         if side is None or not (atr[i] > 0):
-            i += 1
-            continue
+            i += 1; continue
+        # cool-off after a streak of losses (avoid bleeding in chop)
+        if COOL_OFF_LOSSES and losses_in_row >= COOL_OFF_LOSSES and i < cool_until:
+            i += 1; continue
+        # trading-session filter
+        if SESSION_HOURS is not None:
+            h0, h1 = SESSION_HOURS
+            if not (h0 <= hours[i] < h1):
+                i += 1; continue
         entry, A = close[i], atr[i]
         risk = SL_ATR * A
         if side == "long":
             tp, sl, peak = entry + TP_ATR * A, entry - SL_ATR * A, high[i]
         else:
             tp, sl, peak = entry - TP_ATR * A, entry + SL_ATR * A, low[i]
+        # partial-exit + break-even state: BE / partial are decided AFTER the bar
+        # closes (using close, not intrabar high/low), so we can't cheat by
+        # tagging both +1R and the entry on the same wick and exiting at BE.
+        partial_hit = False; partial_r = 0.0; frac = PARTIAL_FRAC if PARTIAL_AT_R else 0.0
+        be_moved = False
         exit_i = exit_px = None
         for j in range(i + 1, min(n - 1, i + MAX_BARS) + 1):
             if side == "long":
-                if TRAIL_ATR > 0:                    # trail: let winners run
+                if TRAIL_ATR > 0:
                     peak = max(peak, high[j])
                     sl = max(sl, peak - TRAIL_ATR * A)
                 if low[j] <= sl:
                     exit_i, exit_px = j, sl; break
                 if TRAIL_ATR == 0 and high[j] >= tp:
                     exit_i, exit_px = j, tp; break
+                # end-of-bar updates: only using CLOSE, so BE/partial cannot fire
+                # on the same wick that would then dip back and exit at BE
+                if BE_AT_R > 0 and not be_moved and close[j] - entry >= BE_AT_R * risk:
+                    sl = max(sl, entry); be_moved = True
+                if PARTIAL_AT_R > 0 and not partial_hit and close[j] - entry >= PARTIAL_AT_R * risk:
+                    partial_hit = True; partial_r = PARTIAL_AT_R
             else:
                 if TRAIL_ATR > 0:
                     peak = min(peak, low[j])
@@ -211,10 +241,23 @@ def _simulate(c, ind, L, S, cost_bps):
                     exit_i, exit_px = j, sl; break
                 if TRAIL_ATR == 0 and low[j] <= tp:
                     exit_i, exit_px = j, tp; break
+                if BE_AT_R > 0 and not be_moved and entry - close[j] >= BE_AT_R * risk:
+                    sl = min(sl, entry); be_moved = True
+                if PARTIAL_AT_R > 0 and not partial_hit and entry - close[j] >= PARTIAL_AT_R * risk:
+                    partial_hit = True; partial_r = PARTIAL_AT_R
         if exit_i is None:
             exit_i, exit_px = min(n - 1, i + MAX_BARS), close[min(n - 1, i + MAX_BARS)]
-        r_gross = ((exit_px - entry) if side == "long" else (entry - exit_px)) / risk
+        # the remainder's R (after the partial)
+        rem_r = ((exit_px - entry) if side == "long" else (entry - exit_px)) / risk
+        r_gross = (frac * partial_r + (1 - frac) * rem_r) if partial_hit else rem_r
         cost_r = cost_bps / (risk / entry * 1e4) if cost_bps else 0.0
+        # streak tracking for cool-off
+        if r_gross <= 0:
+            losses_in_row += 1
+            if COOL_OFF_LOSSES and losses_in_row >= COOL_OFF_LOSSES:
+                cool_until = exit_i + COOL_OFF_BARS
+        else:
+            losses_in_row = 0
         trades.append({
             "entry_time": int(times[i].timestamp()), "exit_time": int(times[exit_i].timestamp()),
             "side": side, "entry": round(float(entry), 6), "sl": round(float(sl), 6),
