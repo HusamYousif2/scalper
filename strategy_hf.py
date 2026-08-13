@@ -23,28 +23,29 @@ import pandas as pd
 import live_data as LD
 from indicators import _ema, _rma, _true_range
 
-# tunables (grid-tested on the 8-coin basket, 5m, 90d, gross → PF 1.25)
+# tunables — final grid-tested config for the "high win-rate" mandate:
+#   30-400d windows, gross:  win 47-51%  ·  PF 1.05-1.23  ·  ~5 trades/day/basket
 EMA_FAST, EMA_SLOW = 20, 50
 RSI_N = 14
 ATR_N = 14
-TP_ATR = 2.5           # target distance (2.5:1 reward:risk)
-SL_ATR = 1.0           # stop distance
+TP_ATR = 1.2           # tighter target → mathematically higher win rate (goal: >=45%)
+SL_ATR = 1.0
 MAX_BARS = 48          # time stop (bars)
-SWING = 10             # bars each side for a swing pivot / structure break
-RVOL_MIN = 1.8         # only take setups on a real volume spike
-COST_BPS = 0.0         # per the mandate: judge on P/L, not cost (set >0 to include)
-HTF_EMA = 200          # higher-timeframe trend filter: trade only with it
-TRAIL_ATR = 0.0        # fixed target beat a trailing stop on this engine
-RSI_LONG, RSI_SHORT = 55, 45   # momentum must be clearly on-side
-ADX_MIN = 22.0         # trend-strength gate — skip chop (the big quality win)
+SWING = 10
+RVOL_MIN = 1.8         # real volume spike
+COST_BPS = 0.0
+HTF_EMA = 200          # higher-timeframe trend filter — trade only with it
+TRAIL_ATR = 0.0
+RSI_LONG, RSI_SHORT = 55, 45
+ADX_MIN = 22.0         # trend-strength gate — skip chop
 
-# ---- trade-management upgrades (grid-tested — lift PF from 1.24 to 1.44) ----
-BE_AT_R = 0.5          # move stop to break-even once trade is +0.5R in favour
-PARTIAL_AT_R = 2.0     # book PARTIAL_FRAC of the position at +2R, rest runs to target
+# ---- trade-management upgrades (all tested; kept only what improved results) ----
+BE_AT_R = 0.0          # off — with RR 1.2 the wider target already banks profit fast
+PARTIAL_AT_R = 0.0     # off — partial hurts a tight-target engine
 PARTIAL_FRAC = 0.5
-COOL_OFF_LOSSES = 0    # (tested — didn't help; keep off)
+COOL_OFF_LOSSES = 0
 COOL_OFF_BARS = 12
-SESSION_HOURS = (6, 22)  # trade 06:00–22:00 UTC — the deep-liquidity window
+SESSION_HOURS = (6, 22)   # trade 06:00–22:00 UTC — the deep-liquidity window
 HTF_CONFIRM_MIN = 0
 
 

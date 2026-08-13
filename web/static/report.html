@@ -68,7 +68,10 @@
       <div class="spacer"></div>
       <div class="rp-ctl"><label>Symbol</label><select id="rp-symbol"></select></div>
       <div class="rp-ctl"><label>Timeframe</label>
-        <span class="rp-static">4H — the strategy's edge</span>
+        <span class="rp-tf" id="rp-tf">
+          <button data-tf="240" class="active">4H</button>
+          <button data-tf="1440">1D</button>
+        </span>
       </div>
       <div class="rp-ctl"><label>Window</label>
         <select id="rp-days">
