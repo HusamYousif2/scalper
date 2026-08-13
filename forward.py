@@ -20,8 +20,8 @@ import strategy_hf as HF
 
 TRACKED = ["BTCUSDT", "ETHUSDT", "SOLUSDT", "BNBUSDT",
            "XRPUSDT", "ADAUSDT", "DOGEUSDT", "LINKUSDT"]
-LOOKBACK_DAYS = 30      # window each tick re-scans (HF settles fast)
-SEED_DAYS = 7           # seed only the last week so tracking is recent
+LOOKBACK_DAYS = 45      # window each tick re-scans (HF settles fast)
+SEED_DAYS = 30          # seed the last month — a big enough sample, not a noisy week
 
 
 def _dir():

@@ -235,7 +235,7 @@ def api_chart(
             # 150 archive days so higher timeframes have enough candles (4H needs
             # ~53 days for 320 bars plus warm-up); the archive load is ~1.5s and
             # is shared across every timeframe, so switching tf never re-bridges.
-            m = _market_frame(symbol, 150)
+            m = _market_frame(symbol, 500 if tf >= 1440 else 150)
         except Exception as e:
             raise HTTPException(503, f"{type(e).__name__}: {e}")
 
@@ -332,7 +332,7 @@ def api_plan(
             # 150 archive days so higher timeframes have enough candles (4H needs
             # ~53 days for 320 bars plus warm-up); the archive load is ~1.5s and
             # is shared across every timeframe, so switching tf never re-bridges.
-            m = _market_frame(symbol, 150)
+            m = _market_frame(symbol, 500 if tf >= 1440 else 150)
         except Exception as e:
             raise HTTPException(503, f"{type(e).__name__}: {e}")
 
@@ -589,7 +589,9 @@ def api_pro_plan(symbol: str = Query("BTCUSDT"), tf: int = Query(240)):
         return JSONResponse(_clean({**hit[1], "cached": True}))
     with _lock_for(key):
         try:
-            rep = SP.current(symbol, tf, _market_frame(symbol, 40))
+            # higher timeframes need more history for the 100/200-period studies
+            tail = 320 if tf >= 1440 else 60 if tf >= 240 else 40
+            rep = SP.current(symbol, tf, _market_frame(symbol, tail))
         except Exception as e:
             raise HTTPException(503, f"{type(e).__name__}: {e}")
         _cache[key] = (time.time(), rep)
