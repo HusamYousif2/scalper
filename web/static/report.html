@@ -68,10 +68,7 @@
       <div class="spacer"></div>
       <div class="rp-ctl"><label>Symbol</label><select id="rp-symbol"></select></div>
       <div class="rp-ctl"><label>Timeframe</label>
-        <span class="rp-tf" id="rp-tf">
-          <button data-tf="240" class="active">4H</button>
-          <button data-tf="1440">1D</button>
-        </span>
+        <span class="rp-static">4H — the strategy's edge</span>
       </div>
       <div class="rp-ctl"><label>Window</label>
         <select id="rp-days">
@@ -210,10 +207,10 @@
     </div>
 
     <h2 id="rp-bt-title" style="font:800 17px var(--sans);margin:26px 0 6px">Backtest — pro strategy</h2>
-    <p class="sub" id="rp-bt-note" style="margin:0 0 14px">One symbol on the chosen
-      timeframe. Uses the pro trend strategy — sparse but higher-conviction trades,
-      every entry / stop / target from its own indicators. The Portfolio (all symbols)
-      and Live forward test below run the high-frequency engine.</p>
+    <p class="sub" id="rp-bt-note" style="margin:0 0 14px">One symbol on the 4-hour
+      timeframe (where the pro strategy's edge is real). Every entry / stop / target
+      from its own indicators. The Portfolio (all symbols) and Live forward test below
+      run the high-frequency engine.</p>
     <div id="rp-status" class="rp-status">Scoring the engine over history…</div>
 
     <div id="rp-body" hidden>
