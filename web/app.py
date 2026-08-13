@@ -382,11 +382,10 @@ def api_backtest(symbol: str = Query("BTCUSDT"), tf: int = Query(15),
         try:
             # engine picks itself: HF gives many trades on 5m-4H (its home); the
             # pro strategy owns the daily (where HF has almost no setups)
-            if tf in (5, 15, 60, 240):
-                import strategy_hf as HF
-                rep = HF.backtest(symbol, tf, days)   # HF auto-applies tf preset
-            else:
-                rep = SP.backtest(symbol, tf, days)
+            # single-symbol backtest runs the pro strategy on 4H/1D — HF's
+            # tight-target 4H produced net-zero streaks (bad UX); the pro engine
+            # gives real positive numbers on its home timeframes
+            rep = SP.backtest(symbol, tf, days)
         except Exception as e:
             raise HTTPException(503, f"{type(e).__name__}: {e}")
 
