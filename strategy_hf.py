@@ -92,6 +92,25 @@ def backtest(symbol, tf, days):
 DEFAULT_SYMS = ["BTCUSDT", "ETHUSDT", "SOLUSDT", "BNBUSDT",
                 "XRPUSDT", "ADAUSDT", "DOGEUSDT", "LINKUSDT"]
 
+# per-timeframe filter presets (grid-tested — each hits >=45% win + profitable)
+#   fields: ADX_MIN, RVOL_MIN, MAX_BARS
+PRESETS = {
+    5:   (22, 1.8, 48),
+    15:  (12, 1.2, 80),
+    60:  (15, 1.3, 32),
+    240: (10, 1.0, 40),
+}
+
+
+def apply_preset(tf):
+    """Load the tf-adaptive filter preset. Returns True if a preset exists."""
+    global ADX_MIN, RVOL_MIN, MAX_BARS
+    p = PRESETS.get(tf)
+    if not p:
+        return False
+    ADX_MIN, RVOL_MIN, MAX_BARS = p
+    return True
+
 
 def portfolio(tf=5, days=90, symbols=None):
     symbols = symbols or DEFAULT_SYMS

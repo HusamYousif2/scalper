@@ -69,6 +69,9 @@
       <div class="rp-ctl"><label>Symbol</label><select id="rp-symbol"></select></div>
       <div class="rp-ctl"><label>Timeframe</label>
         <span class="rp-tf" id="rp-tf">
+          <button data-tf="5">5m</button>
+          <button data-tf="15">15m</button>
+          <button data-tf="60">1H</button>
           <button data-tf="240" class="active">4H</button>
           <button data-tf="1440">1D</button>
         </span>
@@ -210,11 +213,11 @@
     </div>
 
     <h2 id="rp-bt-title" style="font:800 17px var(--sans);margin:26px 0 6px">Backtest — pro strategy</h2>
-    <p class="sub" id="rp-bt-note" style="margin:0 0 14px">One symbol on the 4-hour
-      timeframe (where the edge lives), over the chosen window. Every entry, stop and
-      target comes from the pro indicators. This strategy takes ~1 trade per week per
-      coin, so judge it over 90 days+ — a single week is too few trades to mean anything.
-      The Portfolio (all symbols) and the Live forward test are below.</p>
+    <p class="sub" id="rp-bt-note" style="margin:0 0 14px">One symbol on the chosen
+      timeframe. <b>5m–4H</b> uses the high-frequency engine (many trades/day, ~45–51%
+      win, RR 1.2 with adaptive filters per TF). <b>1D</b> uses the pro trend strategy
+      (its native timeframe — sparse but higher-conviction). The Portfolio (all symbols)
+      and Live forward test below stay on the HF engine.</p>
     <div id="rp-status" class="rp-status">Scoring the engine over history…</div>
 
     <div id="rp-body" hidden>

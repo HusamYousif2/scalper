@@ -380,8 +380,14 @@ def api_backtest(symbol: str = Query("BTCUSDT"), tf: int = Query(15),
 
     with _lock_for(key):
         try:
-            # every entry / stop / exit comes from the pro strategy's own indicators
-            rep = SP.backtest(symbol, tf, days)
+            # engine picks itself: HF gives many trades on 5m-4H (its home); the
+            # pro strategy owns the daily (where HF has almost no setups)
+            if tf in (5, 15, 60, 240):
+                import strategy_hf as HF
+                HF.apply_preset(tf)
+                rep = HF.backtest(symbol, tf, days)
+            else:
+                rep = SP.backtest(symbol, tf, days)
         except Exception as e:
             raise HTTPException(503, f"{type(e).__name__}: {e}")
 
