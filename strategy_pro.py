@@ -253,60 +253,72 @@ def current(symbol, tf, minute_df=None):
     live_close = float(c["close"].iloc[-1])
     atr = float(row["atr"]) if not np.isnan(row["atr"]) else close_bar * 0.01
 
-    # need both bars to agree — otherwise carry the last confirmed direction
-    cur_up = close_bar > row["t3"]
-    prev_up = prev_close > prev_row["t3"]
-    trend_up = cur_up if cur_up == prev_up else prev_up
+    # ---- VOTE-BASED bias & confluence ----
+    # Every indicator ALWAYS votes long or short (no abstains) — that way
+    # confluence is honest: N/5 means "N indicators actively agree with the
+    # winning direction". The majority wins the bias; ties break to the
+    # previous-bar direction.
+    t3_up = close_bar > row["t3"]
     rf_up = row["rf_dir"] > 0
     dmi_up = row["pdi"] > row["mdi"]
-    dmi_strong = row["adx"] > ADX_MIN
-    vedge = (row["cvol"] > 0) or (row["cov"] > 0)
+    sq_up = row["sq_val"] > 0
+    # volatility is a NON-directional gate — it joins the majority (rewards a
+    # bias that already has support with a volatility-confirmation vote, or
+    # tags AGAINST if volatility contracting = trend fading)
+    vol_expanding = (row["cvol"] > 0) or (row["cov"] > 0)
 
-    bias = "long" if trend_up else "short"
+    # first tally the four directional votes to pick the majority
+    dir_long = sum([t3_up, rf_up, dmi_up, sq_up])
+    prev_up = prev_close > prev_row["t3"]
+    if dir_long >= 3:      bias = "long"
+    elif dir_long <= 1:    bias = "short"
+    else:                  bias = "long" if prev_up else "short"   # tie → hysteresis
     up = bias == "long"
+
+    # volatility casts its vote WITH the winning bias if expanding (confirming
+    # the trend), AGAINST if contracting (the trend is fading, low conviction)
+    vol_up = up if vol_expanding else (not up)
+
+    checks = [
+        {"label": "T3 trend",   "pass": t3_up == up,
+         "detail": f"price {'above' if t3_up else 'below'} T3",
+         "vote": "long" if t3_up else "short"},
+        {"label": "Range Filter", "pass": rf_up == up,
+         "detail": f"filter pointing {'up' if rf_up else 'down'}",
+         "vote": "long" if rf_up else "short"},
+        {"label": "ADX / DMI",  "pass": dmi_up == up,
+         "detail": f"ADX {row['adx']:.0f}, DI{'+' if dmi_up else '−'} leading",
+         "vote": "long" if dmi_up else "short"},
+        {"label": "Momentum (Squeeze)", "pass": sq_up == up,
+         "detail": f"momentum {row['sq_val']:+.1f}{' (squeeze on)' if row['sq_on'] > 0.5 else ''}",
+         "vote": "long" if sq_up else "short"},
+        {"label": "Volatility expanding", "pass": vol_expanding,
+         "detail": f"Chaikin {row['cvol']:.0f}, ΔVol {row['cov']:+.2f}",
+         "vote": "long" if vol_up else "short"},
+    ]
+    passed = sum(1 for c_ in checks if c_["pass"])
 
     # cap ATR-derived risk at a REALISTIC % of price for the timeframe.
     max_stop_pct = {5: 0.35, 15: 0.6, 60: 1.0, 240: 2.0, 1440: 2.5}.get(tf, 2.0)
-    # ENTRY IS FIXED to the closed bar's close — this is a professional read, not
-    # a chase-the-price feed. The number stays put through the whole bar (all 4h
-    # on 4H, the full day on 1D). Live price ticks separately in the "current
-    # price" area of the UI, but entry/stop/target don't drift with every wiggle.
     anchor = close_bar
     risk_raw = STOP_ATR * atr
     risk = min(risk_raw, anchor * max_stop_pct / 100.0)
     stop = anchor - risk if up else anchor + risk
     target = anchor + 2 * risk if up else anchor - 2 * risk
 
-    # a fresh trigger only counts if it fired on the CLOSED bar we're reading
     signal_now = bool(L[close_i]) if up else bool(S[close_i])
-    close = anchor   # backward-compat name for score/badge calcs
+    close = anchor
 
-    checks = [
-        {"label": "T3 trend", "pass": bool(trend_up == up),
-         "detail": f"price {'above' if trend_up else 'below'} T3"},
-        {"label": "Range Filter", "pass": bool(rf_up == up),
-         "detail": f"filter pointing {'up' if rf_up else 'down'}"},
-        {"label": "ADX / DMI", "pass": bool((dmi_up == up) and dmi_strong),
-         "detail": f"ADX {row['adx']:.0f}, DI{'+' if dmi_up else '−'} leading"},
-        {"label": "Volatility expanding", "pass": bool(vedge),
-         "detail": f"Chaikin {row['cvol']:.0f}, ΔVol {row['cov']:+.2f}"},
-        {"label": "Squeeze momentum", "pass": bool(row["sq_val"] > 0) == up,
-         "detail": f"momentum {row['sq_val']:+.1f}{' (squeeze on)' if row['sq_on'] > 0.5 else ''}"},
-    ]
-    passed = sum(1 for c_ in checks if c_["pass"])
-    # HIGH-CONVICTION GATE: only publish actionable entry / stop / target when
-    # confluence is strong (>=4/5). Below that the tool refuses to suggest levels
-    # — you get "no clear setup, wait for confluence" instead of misleading
-    # numbers that whipsaw with the noise.
-    MIN_CONFLUENCE = 4
-    high_conviction = passed >= MIN_CONFLUENCE
+    # conviction label — used for UI colour/messaging, but levels ALWAYS render
+    high_conviction = passed >= 4
     stop_bps = abs(close - stop) / close * 1e4
 
     # opportunity score (0-100): how strong / ready this setup is right now
     adx_v = float(row["adx"]) if not np.isnan(row["adx"]) else 0.0
     adx_f = max(0.0, min(1.0, (adx_v - 15) / 25))
+    vol_ok = (row["cvol"] > 0) or (row["cov"] > 0)
     score = 50 * (passed / len(checks)) + (30 if signal_now else 0) \
-        + 15 * adx_f + (5 if vedge else 0)
+        + 15 * adx_f + (5 if vol_ok else 0)
     score = round(min(100.0, score))
     rating = "Fire" if signal_now else "Strong" if score >= 72 \
         else "Building" if score >= 50 else "Watch"
@@ -316,14 +328,13 @@ def current(symbol, tf, minute_df=None):
         "bias": bias,
         "signal_now": signal_now,
         "score": score, "rating": rating,
-        # levels are ONLY published when confluence is high — otherwise null so
-        # the UI can show a clean "wait" state instead of misleading numbers
-        "entry": round(anchor, 6) if high_conviction else None,
-        "stop": round(stop, 6) if high_conviction else None,
-        "target": round(target, 6) if high_conviction else None,
+        # levels ALWAYS render — the vote system picks the strongest direction
+        # so there's always a defensible bias and set of levels
+        "entry": round(anchor, 6),
+        "stop": round(stop, 6),
+        "target": round(target, 6),
         "live_price": round(live_close, 6),
         "high_conviction": high_conviction,
-        "min_confluence": MIN_CONFLUENCE,
         "stop_bps": round(stop_bps, 1),
         "atr": round(atr, 6),
         "atr_pct": round(atr / close * 100, 3),
