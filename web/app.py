@@ -583,14 +583,20 @@ def api_forward(tf: int = Query(5)):
 
 @app.get("/api/pro_plan")
 def api_pro_plan(symbol: str = Query("BTCUSDT"), tf: int = Query(240)):
-    """The pro strategy's read on the latest candle for one symbol: lean, the
-    seven checks, entry and 2.5×ATR stop, and whether a signal just fired."""
+    """The pro strategy's read for one symbol. LEVELS ARE TIME-LOCKED to a
+    cadence appropriate for the timeframe — so entry/stop/target stop
+    'flickering' every minute. Rough rule: refresh every 10-20% of the bar."""
     import strategy_pro as SP
 
+    # per-timeframe cache: values only refresh at this cadence, giving the user
+    # a stable read they can actually act on. Live price still moves in the
+    # separate 'Live' hint on the UI, but the DECISION stays put.
+    cache_ttl = {5: 120, 15: 600, 60: 900, 240: 1800, 1440: 28800}.get(tf, 600)
     key = ("pro_plan", symbol, tf)
     hit = _cache.get(key)
-    if hit and time.time() - hit[0] < 60:
-        return JSONResponse(_clean({**hit[1], "cached": True}))
+    if hit and time.time() - hit[0] < cache_ttl:
+        return JSONResponse(_clean({**hit[1], "cached": True, "refresh_in_s":
+                                    int(cache_ttl - (time.time() - hit[0]))}))
     with _lock_for(key):
         try:
             # higher timeframes need more history for the 100/200-period studies

@@ -304,7 +304,20 @@ def current(symbol, tf, minute_df=None):
     risk_raw = STOP_ATR * atr
     risk = min(risk_raw, anchor * max_stop_pct / 100.0)
     stop = anchor - risk if up else anchor + risk
-    target = anchor + 2 * risk if up else anchor - 2 * risk
+
+    # target uses the STRUCTURAL level (last ~20 bars swing high/low) when it's
+    # closer than the 2R math distance — price actually reaches structural
+    # levels (support/resistance); a raw ATR × 2 target often sits in empty air
+    lookback = min(20, len(c) - 1)
+    if up:
+        struct_target = float(c["high"].iloc[max(0, close_i - lookback):close_i + 1].max())
+        math_target = anchor + 2 * risk
+        # only use structural target if it's above entry (real target) and closer than math
+        target = min(math_target, struct_target) if struct_target > anchor else math_target
+    else:
+        struct_target = float(c["low"].iloc[max(0, close_i - lookback):close_i + 1].min())
+        math_target = anchor - 2 * risk
+        target = max(math_target, struct_target) if struct_target < anchor else math_target
 
     signal_now = bool(L[close_i]) if up else bool(S[close_i])
     close = anchor
