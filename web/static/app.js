@@ -42,33 +42,24 @@ let LIVE_PRO = null, LIVE_HF = null, LAST_LEVEL_DRAW = 0;
    the entry/stop/target of both reads with the price, in real time */
 window.onLivePrice = function (sym, px) {
   if (!px || sym !== ($("symbol") ? $("symbol").value : sym)) return;
+  // update the top ticker for this coin
   const tk = $("tk-" + sym); if (tk) tk.textContent = price(px);
-
-  // Both reads use the SERVER'S CAPPED distances (stop_dist, target_dist) — never
-  // re-derive from raw ATR here, or the % cap is bypassed and the levels drift
-  // way outside a realistic move.
-  if (LIVE_PRO && LIVE_PRO.stop_dist) {
-    const up = LIVE_PRO.bias === "long";
-    if ($("re-entry")) $("re-entry").textContent = price(px);
-    if ($("re-stop")) $("re-stop").textContent = price(up ? px - LIVE_PRO.stop_dist : px + LIVE_PRO.stop_dist);
-    if ($("re-take")) $("re-take").textContent = price(up ? px + LIVE_PRO.target_dist : px - LIVE_PRO.target_dist);
+  // update a small "current price" hint next to the entry, if it exists
+  const now = $("re-live-price");
+  if (now && LIVE_PRO) {
+    const diff = px - LIVE_PRO.entry;
+    const pct = LIVE_PRO.entry ? (diff / LIVE_PRO.entry * 100) : 0;
+    const sign = diff >= 0 ? "+" : "";
+    now.innerHTML = `Live <b>${price(px)}</b> <span class="${diff>=0?'up':'down'}">${sign}${pct.toFixed(2)}%</span>`;
   }
-  if (LIVE_HF) {
-    const up = LIVE_HF.bias === "long";
-    const stop = up ? px - LIVE_HF.slOff : px + LIVE_HF.slOff;
-    const target = up ? px + LIVE_HF.tpOff : px - LIVE_HF.tpOff;
-    const el = $("hf-live");
-    if (el) {
-      const lv = el.querySelectorAll(".hfl-lv");
-      if (lv[0]) lv[0].innerHTML = `<i>Entry</i>${price(px)}`;
-      if (lv[1]) lv[1].innerHTML = `<i>Stop</i><b class="down">${price(stop)}</b>`;
-      if (lv[2]) lv[2].innerHTML = `<i>Target</i><b class="up">${price(target)}</b>`;
-    }
-    // redraw the chart lines at most every 2s (overlay churn is expensive)
-    if (typeof markLevels === "function" && Date.now() - LAST_LEVEL_DRAW > 2000) {
-      markLevels(px, target, stop); LAST_LEVEL_DRAW = Date.now();
-    }
+  const hfNow = $("hf-live-price");
+  if (hfNow && LIVE_HF) {
+    hfNow.textContent = `live ${price(px)}`;
   }
+  // ENTRY / STOP / TARGET are DECISIONS made when the bar closed — they don't
+  // chase every tick. That's the professional-platform behavior and it's what
+  // stops the numbers from "flickering". Server recomputes once per minute (or
+  // once per closed bar) and updates them at that cadence, not on every wick.
 };
 function tfLabel(tf) { return tf >= 60 ? `${tf / 60}H` : `${tf}m`; }
 
@@ -589,8 +580,8 @@ function renderProPlan(p) {
   const card = $("rule-card");
   if (!card || !p) return;
   const up = p.bias === "long";
-  // capped absolute distances so live ticks NEVER drift beyond the % cap
-  LIVE_PRO = { bias: p.bias, stop_dist: p.stop_dist || 0, target_dist: p.target_dist || 0 };
+  // just the entry — for showing live-price delta vs the decision
+  LIVE_PRO = { bias: p.bias, entry: p.entry };
   card.className = `card re-${p.bias}`;
   const V = $("re-verdict");
   V.textContent = up ? "▲ LONG" : "▼ SHORT";

@@ -265,18 +265,21 @@ def current(symbol, tf, minute_df=None):
     bias = "long" if trend_up else "short"
     up = bias == "long"
 
-    # cap ATR-derived risk at a REALISTIC % of price for the timeframe. BTC in
-    # this low-vol regime rarely moves more than 2-3% in a day, so daily targets
-    # like 63k→58k are fantasy. Caps tuned to typical daily/period ranges.
+    # cap ATR-derived risk at a REALISTIC % of price for the timeframe.
     max_stop_pct = {5: 0.35, 15: 0.6, 60: 1.0, 240: 2.0, 1440: 2.5}.get(tf, 2.0)
+    # ENTRY IS FIXED to the closed bar's close — this is a professional read, not
+    # a chase-the-price feed. The number stays put through the whole bar (all 4h
+    # on 4H, the full day on 1D). Live price ticks separately in the "current
+    # price" area of the UI, but entry/stop/target don't drift with every wiggle.
+    anchor = close_bar
     risk_raw = STOP_ATR * atr
-    risk = min(risk_raw, live_close * max_stop_pct / 100.0)
-    stop = live_close - risk if up else live_close + risk
-    target = live_close + 2 * risk if up else live_close - 2 * risk
+    risk = min(risk_raw, anchor * max_stop_pct / 100.0)
+    stop = anchor - risk if up else anchor + risk
+    target = anchor + 2 * risk if up else anchor - 2 * risk
 
     # a fresh trigger only counts if it fired on the CLOSED bar we're reading
     signal_now = bool(L[close_i]) if up else bool(S[close_i])
-    close = live_close   # backward-compat name for the rest of the function
+    close = anchor   # backward-compat name for score/badge calcs
 
     checks = [
         {"label": "T3 trend", "pass": bool(trend_up == up),
@@ -307,14 +310,10 @@ def current(symbol, tf, minute_df=None):
         "bias": bias,
         "signal_now": signal_now,
         "score": score, "rating": rating,
-        "entry": round(close, 6),
+        "entry": round(anchor, 6),
         "stop": round(stop, 6),
         "target": round(target, 6),
-        # CAPPED absolute distances — the live-tick handler must use these, not
-        # re-derive from raw ATR (that would ignore the % cap and put the stop
-        # miles away, which was the "unrealistic values" the user kept seeing)
-        "stop_dist": round(risk, 6),
-        "target_dist": round(2 * risk, 6),
+        "live_price": round(live_close, 6),   # for a separate "current price" display
         "stop_bps": round(stop_bps, 1),
         "atr": round(atr, 6),
         "atr_pct": round(atr / close * 100, 3),

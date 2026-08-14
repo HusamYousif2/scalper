@@ -318,17 +318,19 @@ def current(symbol, tf=5, minute_df=None):
 
     # cap ATR-derived distances at a realistic % move per timeframe
     max_stop_pct = {5: 0.35, 15: 0.6, 60: 1.0, 240: 2.0, 1440: 2.5}.get(tf, 2.0)
-    risk = min(SL_ATR * A, live_close * max_stop_pct / 100.0)
-    tp_dist = min(TP_ATR * A, live_close * max_stop_pct * (TP_ATR / SL_ATR) / 100.0)
+    # anchor entry to the closed bar — the level stays put through the bar,
+    # doesn't chase every price tick
+    anchor = float(c["close"].iloc[ci])
+    risk = min(SL_ATR * A, anchor * max_stop_pct / 100.0)
+    tp_dist = min(TP_ATR * A, anchor * max_stop_pct * (TP_ATR / SL_ATR) / 100.0)
     if bias == "long":
-        sl, tp = live_close - risk, live_close + tp_dist
+        sl, tp = anchor - risk, anchor + tp_dist
     else:
-        sl, tp = live_close + risk, live_close - tp_dist
+        sl, tp = anchor + risk, anchor - tp_dist
     return {
         "symbol": symbol, "tf": tf, "bias": bias, "signal_now": signal_now,
-        "entry": round(live_close, 6), "stop": round(sl, 6), "target": round(tp, 6),
-        # capped absolute distances for the live-tick handler
-        "stop_dist": round(risk, 6), "target_dist": round(tp_dist, 6),
+        "entry": round(anchor, 6), "stop": round(sl, 6), "target": round(tp, 6),
+        "live_price": round(live_close, 6),
         "rr": round(TP_ATR / SL_ATR, 2), "as_of": int(c.index[ci].timestamp()),
     }
 

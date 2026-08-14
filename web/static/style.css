@@ -752,6 +752,11 @@ footer {
 /* header legend is replaced by the on-chart HUD */
 #chart-legend { display: none; }
 
+/* live-price hint under the entry (shows current price vs the anchored entry) */
+.re-live-hint { display: block; font: 500 11px var(--mono); color: var(--muted);
+  margin-top: 3px; font-style: normal; }
+.re-live-hint b { font: 600 11.5px var(--mono); color: var(--text); }
+
 /* pulsing live-feed badge */
 .live-dot { font: 700 10px var(--mono); letter-spacing: 0.08em; color: var(--faint);
   border: 1px solid var(--line); border-radius: 20px; padding: 2px 9px; opacity: 0.55; }
