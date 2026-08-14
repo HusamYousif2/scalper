@@ -580,8 +580,10 @@ function renderProPlan(p) {
   const card = $("rule-card");
   if (!card || !p) return;
   const up = p.bias === "long";
-  // just the entry — for showing live-price delta vs the decision
-  LIVE_PRO = { bias: p.bias, entry: p.entry };
+  // only tick the live-price delta if we have an actual entry decision to compare to
+  LIVE_PRO = strong ? { bias: p.bias, entry: p.entry } : null;
+  const nowEl = $("re-live-price");
+  if (nowEl && !strong) nowEl.textContent = "";
   card.className = `card re-${p.bias}`;
   const V = $("re-verdict");
   V.textContent = up ? "▲ LONG" : "▼ SHORT";
@@ -600,25 +602,38 @@ function renderProPlan(p) {
   $("re-adx").textContent = `${p.adx} · ${p.adx > 20 ? "trending" : "weak"}`;
   $("re-agree").textContent = `${p.passed} / ${p.total_checks}`;
 
-  const target = p.target != null ? p.target
-    : (up ? p.entry + 2 * (p.entry - p.stop) : p.entry - 2 * (p.stop - p.entry));
-  $("re-entry").textContent = price(p.entry);
-  $("re-stop").textContent = price(p.stop);
-  $("re-take").textContent = price(target);
-  $("re-take-x").textContent = `2R · then trails`;
-  $("re-stop-x").textContent = `${up ? "−" : "+"}${pct(p.stop_bps)}`;
-  $("re-rr").textContent = p.signal_now ? "● ENTRY NOW" : "watching";
-  // chart entry/stop/target lines are owned by the opportunity scanner now
-
-  const state = p.signal_now
-    ? `A fresh ${p.bias} signal just fired.`
-    : `No new signal yet — ${p.passed} of ${p.total_checks} conditions met, waiting for the trigger.`;
-  const stopX = p.stop_atr != null ? p.stop_atr : 2;
-  const trailX = p.trail_atr != null ? p.trail_atr : 7;
-  $("re-narr").textContent =
-    `Pro ${tl} trend + volatility strategy, leaning ${p.bias}. ${state} ` +
-    `Enter ${price(p.entry)}, stop ${price(p.stop)} (${stopX}×ATR = 1R), target ${price(target)} (2R). ` +
-    `Every level comes from the strategy's own indicators; past the target the ${trailX}×ATR trailing stop lets the winner run.`;
+  // HIGH-CONVICTION GATE: only render actionable levels when the server says
+  // this is a strong-enough setup (>=4/5 confluence). Otherwise show "wait" —
+  // don't tempt the user with numbers on a mediocre read.
+  const min = p.min_confluence || 4;
+  const strong = p.high_conviction && p.entry != null;
+  if (strong) {
+    const target = p.target;
+    $("re-entry").textContent = price(p.entry);
+    $("re-stop").textContent = price(p.stop);
+    $("re-take").textContent = price(target);
+    $("re-take-x").textContent = `2R · then trails`;
+    $("re-stop-x").textContent = `${up ? "−" : "+"}${pct(p.stop_bps)}`;
+    $("re-rr").textContent = p.signal_now ? "● ENTRY NOW" : "watching";
+    const stopX = p.stop_atr != null ? p.stop_atr : 2;
+    const trailX = p.trail_atr != null ? p.trail_atr : 7;
+    $("re-narr").textContent =
+      `Pro ${tl} trend + volatility strategy, leaning ${p.bias} — ${p.passed}/${p.total_checks} conditions in agreement (high conviction). ` +
+      `Enter ${price(p.entry)}, stop ${price(p.stop)} (${stopX}×ATR = 1R), target ${price(target)} (2R). ` +
+      `Past the target the ${trailX}×ATR trailing stop lets the winner run.`;
+  } else {
+    // clear "wait" state — no misleading numbers
+    $("re-entry").textContent = "—";
+    $("re-stop").textContent = "—";
+    $("re-take").textContent = "wait";
+    $("re-take-x").textContent = "";
+    $("re-stop-x").textContent = "";
+    $("re-rr").textContent = `need ${min}+ / 5`;
+    $("re-narr").textContent =
+      `Pro ${tl}: only ${p.passed}/${p.total_checks} of the strategy's conditions align — not a high-conviction setup. ` +
+      `The tool holds back entry/stop/target until at least ${min}/${p.total_checks} conditions agree, so you only act on strong reads. ` +
+      `Bias is leaning ${p.bias}, but wait for more confluence before entering.`;
+  }
 
   $("re-fams").innerHTML = (p.checks || []).map((c) => {
     const col = c.pass ? "var(--up)" : "var(--faint)";

@@ -294,6 +294,12 @@ def current(symbol, tf, minute_df=None):
          "detail": f"momentum {row['sq_val']:+.1f}{' (squeeze on)' if row['sq_on'] > 0.5 else ''}"},
     ]
     passed = sum(1 for c_ in checks if c_["pass"])
+    # HIGH-CONVICTION GATE: only publish actionable entry / stop / target when
+    # confluence is strong (>=4/5). Below that the tool refuses to suggest levels
+    # — you get "no clear setup, wait for confluence" instead of misleading
+    # numbers that whipsaw with the noise.
+    MIN_CONFLUENCE = 4
+    high_conviction = passed >= MIN_CONFLUENCE
     stop_bps = abs(close - stop) / close * 1e4
 
     # opportunity score (0-100): how strong / ready this setup is right now
@@ -310,10 +316,14 @@ def current(symbol, tf, minute_df=None):
         "bias": bias,
         "signal_now": signal_now,
         "score": score, "rating": rating,
-        "entry": round(anchor, 6),
-        "stop": round(stop, 6),
-        "target": round(target, 6),
-        "live_price": round(live_close, 6),   # for a separate "current price" display
+        # levels are ONLY published when confluence is high — otherwise null so
+        # the UI can show a clean "wait" state instead of misleading numbers
+        "entry": round(anchor, 6) if high_conviction else None,
+        "stop": round(stop, 6) if high_conviction else None,
+        "target": round(target, 6) if high_conviction else None,
+        "live_price": round(live_close, 6),
+        "high_conviction": high_conviction,
+        "min_confluence": MIN_CONFLUENCE,
         "stop_bps": round(stop_bps, 1),
         "atr": round(atr, 6),
         "atr_pct": round(atr / close * 100, 3),
