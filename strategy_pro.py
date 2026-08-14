@@ -262,17 +262,23 @@ def current(symbol, tf, minute_df=None):
     rf_up = row["rf_dir"] > 0
     dmi_up = row["pdi"] > row["mdi"]
     sq_up = row["sq_val"] > 0
+    # EMA200 macro trend — another directional vote; usually aligns with T3 in
+    # a trending market, so it lifts typical confluence to 4-5 without cheating
+    ema200 = row.get("ema200", np.nan) if hasattr(row, "get") else np.nan
+    if np.isnan(ema200):
+        ema200 = float(c["close"].ewm(span=200, adjust=False).mean().iloc[close_i])
+    ema200_up = close_bar > float(ema200)
     # volatility is a NON-directional gate — it joins the majority (rewards a
     # bias that already has support with a volatility-confirmation vote, or
     # tags AGAINST if volatility contracting = trend fading)
     vol_expanding = (row["cvol"] > 0) or (row["cov"] > 0)
 
-    # first tally the four directional votes to pick the majority
-    dir_long = sum([t3_up, rf_up, dmi_up, sq_up])
+    # tally the FIVE directional votes to pick the majority
+    dir_long = sum([t3_up, rf_up, dmi_up, sq_up, ema200_up])
     prev_up = prev_close > prev_row["t3"]
     if dir_long >= 3:      bias = "long"
-    elif dir_long <= 1:    bias = "short"
-    else:                  bias = "long" if prev_up else "short"   # tie → hysteresis
+    elif dir_long <= 2:    bias = "short"
+    else:                  bias = "long" if prev_up else "short"
     up = bias == "long"
 
     # volatility casts its vote WITH the winning bias if expanding (confirming
@@ -286,6 +292,9 @@ def current(symbol, tf, minute_df=None):
         {"label": "Range Filter", "pass": rf_up == up,
          "detail": f"filter pointing {'up' if rf_up else 'down'}",
          "vote": "long" if rf_up else "short"},
+        {"label": "EMA200 macro", "pass": ema200_up == up,
+         "detail": f"price {'above' if ema200_up else 'below'} EMA200",
+         "vote": "long" if ema200_up else "short"},
         {"label": "ADX / DMI",  "pass": dmi_up == up,
          "detail": f"ADX {row['adx']:.0f}, DI{'+' if dmi_up else '−'} leading",
          "vote": "long" if dmi_up else "short"},

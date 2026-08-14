@@ -588,15 +588,32 @@ def api_pro_plan(symbol: str = Query("BTCUSDT"), tf: int = Query(240)):
     'flickering' every minute. Rough rule: refresh every 10-20% of the bar."""
     import strategy_pro as SP
 
-    # per-timeframe cache: values only refresh at this cadence, giving the user
-    # a stable read they can actually act on. Live price still moves in the
-    # separate 'Live' hint on the UI, but the DECISION stays put.
+    # per-timeframe cache: values are time-locked, BUT invalidate early if the
+    # market has moved enough that the cached decision is stale — otherwise the
+    # user sees an entry price the market has already blown past.
     cache_ttl = {5: 120, 15: 600, 60: 900, 240: 1800, 1440: 28800}.get(tf, 600)
+    invalidate_pct = {5: 0.25, 15: 0.35, 60: 0.6, 240: 1.0, 1440: 2.0}.get(tf, 0.5)
     key = ("pro_plan", symbol, tf)
     hit = _cache.get(key)
     if hit and time.time() - hit[0] < cache_ttl:
-        return JSONResponse(_clean({**hit[1], "cached": True, "refresh_in_s":
-                                    int(cache_ttl - (time.time() - hit[0]))}))
+        # is the cached decision still relevant, or has price moved beyond it?
+        try:
+            import requests
+            live = float(requests.get("https://fapi.binance.com/fapi/v1/ticker/price",
+                                     params={"symbol": symbol}, timeout=3).json()["price"])
+            drift = abs(live - hit[1]["entry"]) / hit[1]["entry"] * 100
+            if drift <= invalidate_pct:
+                # still fresh — return cached, and update the live_price in-place
+                out = dict(hit[1]); out["live_price"] = round(live, 6)
+                out["price_drift_pct"] = round(drift, 3)
+                out["cached"] = True
+                out["refresh_in_s"] = int(cache_ttl - (time.time() - hit[0]))
+                return JSONResponse(_clean(out))
+        except Exception:
+            # if the price lookup fails, fall through to the classic cached path
+            out = dict(hit[1]); out["cached"] = True
+            out["refresh_in_s"] = int(cache_ttl - (time.time() - hit[0]))
+            return JSONResponse(_clean(out))
     with _lock_for(key):
         try:
             # higher timeframes need more history for the 100/200-period studies

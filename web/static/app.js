@@ -605,10 +605,12 @@ function renderProPlan(p) {
   const target = p.target;
   const stopX = p.stop_atr != null ? p.stop_atr : 2;
   const trailX = p.trail_atr != null ? p.trail_atr : 7;
-  const conv = p.passed >= 5 ? "very high (5/5)"
-             : p.passed >= 4 ? "high (4/5)"
-             : p.passed >= 3 ? "moderate (3/5)"
-             : `lower (${p.passed}/5) — watch closely`;
+  const tot = p.total_checks || 6;
+  const conv = p.passed >= tot ? `very high (${p.passed}/${tot})`
+             : p.passed >= tot - 1 ? `high (${p.passed}/${tot})`
+             : p.passed >= tot - 2 ? `solid (${p.passed}/${tot})`
+             : p.passed >= 3 ? `moderate (${p.passed}/${tot})`
+             : `lower (${p.passed}/${tot}) — watch closely`;
   $("re-entry").textContent = price(p.entry);
   $("re-stop").textContent = price(p.stop);
   $("re-take").textContent = price(target);
