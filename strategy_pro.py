@@ -300,19 +300,25 @@ def current(symbol, tf, minute_df=None):
 
     # cap ATR-derived risk at a REALISTIC % of price for the timeframe.
     max_stop_pct = {5: 0.35, 15: 0.6, 60: 1.0, 240: 2.0, 1440: 2.5}.get(tf, 2.0)
-    anchor = close_bar
+    # ANCHOR ENTRY TO LIVE PRICE (frozen by the endpoint's tf-based cache).
+    # Previously we anchored on close_bar which meant entry was hours old — the
+    # market had already moved past it, so "entry 63497 / live 62732" looked
+    # backwards. Now entry = the actual price when the decision was made and
+    # stays put until the next scheduled refresh.
+    anchor = live_close
     risk_raw = STOP_ATR * atr
     risk = min(risk_raw, anchor * max_stop_pct / 100.0)
     stop = anchor - risk if up else anchor + risk
 
-    # target uses the STRUCTURAL level (last ~20 bars swing high/low) when it's
-    # closer than the 2R math distance — price actually reaches structural
-    # levels (support/resistance); a raw ATR × 2 target often sits in empty air
-    lookback = min(20, len(c) - 1)
+    # target uses the STRUCTURAL level (recent swing high/low) — a real level
+    # price actually reaches (support/resistance), not a raw ATR distance in
+    # empty air. Lookback SCALES with the timeframe so 1H and 4H don't land on
+    # the same swing (1H sees the last day, 4H sees the last week+, 1D longer).
+    lookback = {5: 24, 15: 20, 60: 24, 240: 30, 1440: 40}.get(tf, 20)
+    lookback = min(lookback, len(c) - 1)
     if up:
         struct_target = float(c["high"].iloc[max(0, close_i - lookback):close_i + 1].max())
         math_target = anchor + 2 * risk
-        # only use structural target if it's above entry (real target) and closer than math
         target = min(math_target, struct_target) if struct_target > anchor else math_target
     else:
         struct_target = float(c["low"].iloc[max(0, close_i - lookback):close_i + 1].min())
