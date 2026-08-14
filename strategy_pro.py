@@ -241,15 +241,22 @@ def current(symbol, tf, minute_df=None):
     ind = PI.compute(c)
     L, S = _signals(c, ind)
 
-    # BIAS from the last CLOSED bar (index -2 if we have >=2 bars) — stops the
-    # in-progress candle from flipping the decision every few minutes.
+    # BIAS with HYSTERESIS: read the last CLOSED bar AND the one before it, and
+    # only accept a direction change if BOTH bars agree (a single wick against
+    # trend can't flip the call). This kills the flip-flop the user was seeing.
     close_i = len(c) - 2 if len(c) >= 2 else len(c) - 1
+    prev_i = max(0, close_i - 1)
     row = ind.iloc[close_i]
+    prev_row = ind.iloc[prev_i]
     close_bar = float(c["close"].iloc[close_i])
-    live_close = float(c["close"].iloc[-1])   # for the actual entry price shown
+    prev_close = float(c["close"].iloc[prev_i])
+    live_close = float(c["close"].iloc[-1])
     atr = float(row["atr"]) if not np.isnan(row["atr"]) else close_bar * 0.01
 
-    trend_up = close_bar > row["t3"]
+    # need both bars to agree — otherwise carry the last confirmed direction
+    cur_up = close_bar > row["t3"]
+    prev_up = prev_close > prev_row["t3"]
+    trend_up = cur_up if cur_up == prev_up else prev_up
     rf_up = row["rf_dir"] > 0
     dmi_up = row["pdi"] > row["mdi"]
     dmi_strong = row["adx"] > ADX_MIN
@@ -303,6 +310,11 @@ def current(symbol, tf, minute_df=None):
         "entry": round(close, 6),
         "stop": round(stop, 6),
         "target": round(target, 6),
+        # CAPPED absolute distances — the live-tick handler must use these, not
+        # re-derive from raw ATR (that would ignore the % cap and put the stop
+        # miles away, which was the "unrealistic values" the user kept seeing)
+        "stop_dist": round(risk, 6),
+        "target_dist": round(2 * risk, 6),
         "stop_bps": round(stop_bps, 1),
         "atr": round(atr, 6),
         "atr_pct": round(atr / close * 100, 3),

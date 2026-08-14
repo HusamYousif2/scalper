@@ -327,6 +327,8 @@ def current(symbol, tf=5, minute_df=None):
     return {
         "symbol": symbol, "tf": tf, "bias": bias, "signal_now": signal_now,
         "entry": round(live_close, 6), "stop": round(sl, 6), "target": round(tp, 6),
+        # capped absolute distances for the live-tick handler
+        "stop_dist": round(risk, 6), "target_dist": round(tp_dist, 6),
         "rr": round(TP_ATR / SL_ATR, 2), "as_of": int(c.index[ci].timestamp()),
     }
 

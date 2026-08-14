@@ -44,12 +44,14 @@ window.onLivePrice = function (sym, px) {
   if (!px || sym !== ($("symbol") ? $("symbol").value : sym)) return;
   const tk = $("tk-" + sym); if (tk) tk.textContent = price(px);
 
-  if (LIVE_PRO && LIVE_PRO.atr > 0) {
+  // Both reads use the SERVER'S CAPPED distances (stop_dist, target_dist) — never
+  // re-derive from raw ATR here, or the % cap is bypassed and the levels drift
+  // way outside a realistic move.
+  if (LIVE_PRO && LIVE_PRO.stop_dist) {
     const up = LIVE_PRO.bias === "long";
-    const risk = LIVE_PRO.stop_atr * LIVE_PRO.atr;
     if ($("re-entry")) $("re-entry").textContent = price(px);
-    if ($("re-stop")) $("re-stop").textContent = price(up ? px - risk : px + risk);
-    if ($("re-take")) $("re-take").textContent = price(up ? px + 2 * risk : px - 2 * risk);
+    if ($("re-stop")) $("re-stop").textContent = price(up ? px - LIVE_PRO.stop_dist : px + LIVE_PRO.stop_dist);
+    if ($("re-take")) $("re-take").textContent = price(up ? px + LIVE_PRO.target_dist : px - LIVE_PRO.target_dist);
   }
   if (LIVE_HF) {
     const up = LIVE_HF.bias === "long";
@@ -587,7 +589,8 @@ function renderProPlan(p) {
   const card = $("rule-card");
   if (!card || !p) return;
   const up = p.bias === "long";
-  LIVE_PRO = { bias: p.bias, stop_atr: p.stop_atr || 2, atr: p.atr || 0 };   // for live ticks
+  // capped absolute distances so live ticks NEVER drift beyond the % cap
+  LIVE_PRO = { bias: p.bias, stop_dist: p.stop_dist || 0, target_dist: p.target_dist || 0 };
   card.className = `card re-${p.bias}`;
   const V = $("re-verdict");
   V.textContent = up ? "▲ LONG" : "▼ SHORT";
