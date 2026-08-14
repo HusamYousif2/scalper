@@ -298,28 +298,36 @@ def _simulate(c, ind, L, S, cost_bps):
 
 
 def current(symbol, tf=5, minute_df=None):
-    """The engine's live read on the latest candle: direction, whether a setup is
-    firing right now, and the entry / stop / target."""
-    apply_preset(tf)   # thread-safe re-apply
+    """Live read anchored on the LAST CLOSED bar so the bias doesn't flicker with
+    every tick of the forming candle. Levels use the live price and are capped at
+    a realistic % move for the timeframe."""
+    apply_preset(tf)
     if minute_df is None:
         minute_df = LD.load_recent_archive(symbol, 20)
     c = _resample(minute_df, tf)
     ind = _indicators(c)
     L, S = _signals(c, ind)
-    i = len(c) - 1
-    close = float(c["close"].iloc[i])
-    A = float(ind["atr"].iloc[i]) if not np.isnan(ind["atr"].iloc[i]) else close * 0.01
-    up = bool(ind["ema_f"].iloc[i] > ind["ema_s"].iloc[i])
+
+    # last CLOSED bar decides direction — stable through the currently-forming bar
+    ci = len(c) - 2 if len(c) >= 2 else len(c) - 1
+    live_close = float(c["close"].iloc[-1])
+    A = float(ind["atr"].iloc[ci]) if not np.isnan(ind["atr"].iloc[ci]) else live_close * 0.01
+    up = bool(ind["ema_f"].iloc[ci] > ind["ema_s"].iloc[ci])
     bias = "long" if up else "short"
-    signal_now = bool(L[i]) if up else bool(S[i])
+    signal_now = bool(L[ci]) if up else bool(S[ci])
+
+    # cap ATR-derived distances at a realistic % move per timeframe
+    max_stop_pct = {5: 0.35, 15: 0.6, 60: 1.0, 240: 2.0, 1440: 2.5}.get(tf, 2.0)
+    risk = min(SL_ATR * A, live_close * max_stop_pct / 100.0)
+    tp_dist = min(TP_ATR * A, live_close * max_stop_pct * (TP_ATR / SL_ATR) / 100.0)
     if bias == "long":
-        sl, tp = close - SL_ATR * A, close + TP_ATR * A
+        sl, tp = live_close - risk, live_close + tp_dist
     else:
-        sl, tp = close + SL_ATR * A, close - TP_ATR * A
+        sl, tp = live_close + risk, live_close - tp_dist
     return {
         "symbol": symbol, "tf": tf, "bias": bias, "signal_now": signal_now,
-        "entry": round(close, 6), "stop": round(sl, 6), "target": round(tp, 6),
-        "rr": round(TP_ATR / SL_ATR, 2), "as_of": int(c.index[i].timestamp()),
+        "entry": round(live_close, 6), "stop": round(sl, 6), "target": round(tp, 6),
+        "rr": round(TP_ATR / SL_ATR, 2), "as_of": int(c.index[ci].timestamp()),
     }
 
 

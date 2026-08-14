@@ -230,23 +230,26 @@ def portfolio(tf=240, days=190, symbols=None):
 
 
 def current(symbol, tf, minute_df=None):
-    """The strategy's read on the latest candle: directional lean, which of the
-    checks pass, the entry/stop, and whether a fresh signal just fired.
-
-    `minute_df` lets the caller pass the same live-bridged frame the chart uses so
-    the card and the chart agree; without it we fall back to the archive."""
+    """The strategy's read on the LAST CLOSED bar (stable through the currently
+    forming bar so the bias doesn't flip every tick). Levels use the live price
+    as the anchor and cap ATR-derived distances at a realistic % move so daily
+    targets stop looking like fantasy."""
     if minute_df is None:
         minute_df = LD.load_recent_archive(symbol, 40)
     agg = {"open": "first", "high": "max", "low": "min", "close": "last", "volume": "sum"}
     c = minute_df.resample(f"{tf}min").agg(agg).dropna(subset=["open", "close"])
     ind = PI.compute(c)
     L, S = _signals(c, ind)
-    i = len(c) - 1
-    row = ind.iloc[i]
-    close = float(c["close"].iloc[i])
-    atr = float(row["atr"]) if not np.isnan(row["atr"]) else close * 0.01
 
-    trend_up = close > row["t3"]
+    # BIAS from the last CLOSED bar (index -2 if we have >=2 bars) — stops the
+    # in-progress candle from flipping the decision every few minutes.
+    close_i = len(c) - 2 if len(c) >= 2 else len(c) - 1
+    row = ind.iloc[close_i]
+    close_bar = float(c["close"].iloc[close_i])
+    live_close = float(c["close"].iloc[-1])   # for the actual entry price shown
+    atr = float(row["atr"]) if not np.isnan(row["atr"]) else close_bar * 0.01
+
+    trend_up = close_bar > row["t3"]
     rf_up = row["rf_dir"] > 0
     dmi_up = row["pdi"] > row["mdi"]
     dmi_strong = row["adx"] > ADX_MIN
@@ -254,10 +257,19 @@ def current(symbol, tf, minute_df=None):
 
     bias = "long" if trend_up else "short"
     up = bias == "long"
-    risk = STOP_ATR * atr
-    stop = close - risk if up else close + risk
-    target = close + 2 * risk if up else close - 2 * risk   # 2R reference target
-    signal_now = bool(L[i]) if up else bool(S[i])
+
+    # cap ATR-derived risk at a REALISTIC % of price for the timeframe. BTC in
+    # this low-vol regime rarely moves more than 2-3% in a day, so daily targets
+    # like 63k→58k are fantasy. Caps tuned to typical daily/period ranges.
+    max_stop_pct = {5: 0.35, 15: 0.6, 60: 1.0, 240: 2.0, 1440: 2.5}.get(tf, 2.0)
+    risk_raw = STOP_ATR * atr
+    risk = min(risk_raw, live_close * max_stop_pct / 100.0)
+    stop = live_close - risk if up else live_close + risk
+    target = live_close + 2 * risk if up else live_close - 2 * risk
+
+    # a fresh trigger only counts if it fired on the CLOSED bar we're reading
+    signal_now = bool(L[close_i]) if up else bool(S[close_i])
+    close = live_close   # backward-compat name for the rest of the function
 
     checks = [
         {"label": "T3 trend", "pass": bool(trend_up == up),
@@ -299,7 +311,7 @@ def current(symbol, tf, minute_df=None):
         "adx": round(adx_v, 1),
         "passed": passed, "total_checks": len(checks),
         "checks": checks,
-        "as_of": int(c.index[i].timestamp()),
+        "as_of": int(c.index[close_i].timestamp()),
     }
 
 
