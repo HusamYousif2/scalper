@@ -13,35 +13,36 @@
   .rp-nav a.back:hover { color: var(--text); }
   .rp-nav h1 { font: 800 19px var(--sans); margin: 0; }
   .rp-nav .spacer { flex: 1; }
-  .rp-live { display: inline-flex; align-items: center; gap: 7px; font: 600 11px var(--mono);
-    color: var(--muted); }
-  .rp-live .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--up);
-    box-shadow: 0 0 0 0 rgba(46,204,143,.5); animation: rp-pulse 1.8s infinite; }
-  @keyframes rp-pulse { 0%,100% { box-shadow: 0 0 0 0 rgba(46,204,143,.45); }
-    50% { box-shadow: 0 0 0 6px rgba(46,204,143,0); } }
+  .rp-live { display: inline-flex; align-items: center; gap: 7px; font: 600 11px var(--mono); color: var(--muted); }
+  .rp-live .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--up); animation: rp-pulse 1.8s infinite; }
+  @keyframes rp-pulse { 0%,100% { box-shadow: 0 0 0 0 rgba(46,204,143,.45); } 50% { box-shadow: 0 0 0 6px rgba(46,204,143,0); } }
 
   /* hero */
-  .hero { background:
-      radial-gradient(1200px 300px at 15% -40%, rgba(46,204,143,.10), transparent 60%),
-      var(--panel);
-    border: 1px solid var(--line); border-radius: 18px; padding: 26px 26px 22px; margin-bottom: 22px; }
-  .hero .eyebrow { font: 700 11px var(--sans); letter-spacing: .12em; text-transform: uppercase;
-    color: var(--gold); margin: 0 0 6px; }
+  .hero { background: radial-gradient(1200px 320px at 12% -40%, rgba(46,204,143,.10), transparent 60%), var(--panel);
+    border: 1px solid var(--line); border-radius: 18px; padding: 26px 26px 22px; margin-bottom: 18px; }
+  .hero .eyebrow { font: 700 11px var(--sans); letter-spacing: .12em; text-transform: uppercase; color: var(--gold); margin: 0 0 6px; }
   .hero h2 { font: 800 26px var(--sans); margin: 0 0 8px; }
-  .hero p { font: 13.5px var(--sans); color: var(--muted); margin: 0 0 20px; max-width: 720px; line-height: 1.55; }
+  .hero p.lede { font: 13.5px var(--sans); color: var(--muted); margin: 0 0 20px; max-width: 730px; line-height: 1.55; }
   .hero-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; }
   @media (max-width: 860px) { .hero-grid { grid-template-columns: repeat(2, 1fr); } }
   .hero-stat .hs-lab { font: 600 11px var(--sans); color: var(--muted); }
   .hero-stat .hs-val { font: 800 34px var(--mono); line-height: 1.05; margin-top: 4px; letter-spacing: -.01em; }
   .hero-stat .hs-sub { font: 11px var(--mono); color: var(--faint); margin-top: 4px; }
-  .hs-val.up { color: var(--up); } .hs-val.down { color: var(--down); }
+  .hs-val.up { color: var(--up); } .hs-val.down { color: var(--down); } .hs-val.mut { color: var(--muted); }
 
-  .rp-card { background: var(--panel); border: 1px solid var(--line); border-radius: 16px;
-    padding: 20px 20px 22px; margin-bottom: 20px; }
+  /* methodology strip */
+  .method { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin-bottom: 20px; }
+  @media (max-width: 760px) { .method { grid-template-columns: 1fr; } }
+  .mcard { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 16px 18px; }
+  .mcard .mn { display: inline-flex; align-items: center; justify-content: center; width: 26px; height: 26px;
+    border-radius: 8px; background: rgba(245,197,66,.14); color: var(--gold); font: 800 13px var(--mono); }
+  .mcard h4 { font: 700 13.5px var(--sans); margin: 10px 0 5px; }
+  .mcard p { font: 12px var(--sans); color: var(--muted); margin: 0; line-height: 1.5; }
+
+  .rp-card { background: var(--panel); border: 1px solid var(--line); border-radius: 16px; padding: 20px 20px 22px; margin-bottom: 20px; }
   .rp-card h2 { font: 700 16px var(--sans); margin: 0; }
   .rp-head { display: flex; align-items: baseline; gap: 12px; margin-bottom: 6px; flex-wrap: wrap; }
-  .rp-head .win-badge { font: 800 14px var(--sans); padding: 4px 12px; border-radius: 9px;
-    border: 1px solid var(--line); }
+  .rp-head .win-badge { font: 800 14px var(--sans); padding: 4px 12px; border-radius: 9px; border: 1px solid var(--line); }
   .rp-head .win-badge.good { color: var(--up); border-color: rgba(46,204,143,.4); background: rgba(46,204,143,.08); }
   .rp-head .win-badge.bad  { color: var(--down); border-color: rgba(240,85,79,.4); background: rgba(240,85,79,.08); }
   .rp-head .rp-window { font: 12px var(--mono); color: var(--faint); }
@@ -50,13 +51,10 @@
   .cols { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
   @media (max-width: 860px) { .cols { grid-template-columns: 1fr; } }
 
-  /* learned-weights rows */
-  .wt-row { display: grid; grid-template-columns: 1fr 46px; align-items: center; gap: 12px;
-    padding: 10px 0; border-bottom: 1px solid var(--line-soft); }
+  .wt-row { display: grid; grid-template-columns: 1fr 46px; align-items: center; gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--line-soft); }
   .wt-row:last-child { border-bottom: none; }
   .wt-name { font: 600 13px var(--sans); color: var(--text); }
-  .wt-bar { position: relative; height: 8px; border-radius: 5px; background: var(--panel-2);
-    overflow: hidden; margin-top: 7px; }
+  .wt-bar { position: relative; height: 8px; border-radius: 5px; background: var(--panel-2); overflow: hidden; margin-top: 7px; }
   .wt-fill { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 5px; }
   .wt-fill.good { background: linear-gradient(90deg, var(--up), #57e0a6); }
   .wt-fill.mid  { background: linear-gradient(90deg, var(--gold), #f0c24a); }
@@ -66,17 +64,20 @@
   .wt-meta { font: 11px var(--mono); color: var(--faint); margin-top: 4px; }
 
   table.rp-tbl { width: 100%; border-collapse: collapse; font: 12.5px var(--mono); }
-  table.rp-tbl th { text-align: right; font: 600 11px var(--sans); color: var(--muted);
-    padding: 8px 10px; border-bottom: 1px solid var(--line); position: sticky; top: 0; background: var(--panel); }
+  table.rp-tbl th { text-align: right; font: 600 11px var(--sans); color: var(--muted); padding: 8px 10px;
+    border-bottom: 1px solid var(--line); position: sticky; top: 0; background: var(--panel); }
   table.rp-tbl th:first-child, table.rp-tbl td:first-child { text-align: left; }
   table.rp-tbl td { padding: 7px 10px; border-bottom: 1px solid var(--line-soft); color: var(--text); }
   table.rp-tbl td.up { color: var(--up); } table.rp-tbl td.down { color: var(--down); }
-  table.rp-tbl tr.muted td, .muted { color: var(--muted); }
+  .muted { color: var(--muted); }
   .tbl-scroll { max-height: 420px; overflow-y: auto; }
-  .pill { font: 700 10px var(--mono); padding: 2px 7px; border-radius: 20px; border: 1px solid var(--line); }
+  .pill { font: 700 10px var(--mono); padding: 2px 7px; border-radius: 20px; border: 1px solid var(--line); white-space: nowrap; }
   .pill.win { color: var(--up); border-color: rgba(46,204,143,.4); }
   .pill.loss { color: var(--down); border-color: rgba(240,85,79,.4); }
   .pill.drift { color: var(--muted); }
+  .pill.watch { color: var(--gold); border-color: rgba(245,197,66,.4); }
+  .side-long { color: var(--up); } .side-short { color: var(--down); }
+  .empty-note { padding: 26px 16px; text-align: center; color: var(--muted); font: 13px var(--sans); line-height: 1.6; }
 </style>
 </head>
 <body>
@@ -88,50 +89,80 @@
       <span class="rp-live"><span class="dot"></span><span id="dec-updated">live</span></span>
     </div>
 
-    <!-- ===== HERO: the live scorecard ===== -->
+    <!-- HERO -->
     <div class="hero">
-      <p class="eyebrow">Real forward test · last <span id="hero-window">5</span> days</p>
-      <h2>How the AI read's calls actually played out</h2>
-      <p>This is not a backtest. Every read is recorded the moment it's made, then
-        watched against real price — target reached is a win, stop hit is a loss.
-        The tool <b>learns which indicators actually predict</b> and re-weights its
-        vote as it goes, so the numbers below improve on their own.</p>
+      <p class="eyebrow" id="hero-eyebrow">Real forward test · measuring live</p>
+      <h2>How the AI read's calls actually play out</h2>
+      <p class="lede">Not a backtest. Every read is recorded the moment it's made, then
+        watched against real price — target reached is a win, stop hit is a loss. Nothing
+        is re-scored. The tool <b>learns which indicators actually predict</b> and re-weights
+        its own vote, so its accuracy compounds over time.</p>
       <div class="hero-grid">
         <div class="hero-stat"><div class="hs-lab">Win rate</div>
-          <div class="hs-val" id="dec-win">—</div><div class="hs-sub" id="dec-winsub">price went our way</div></div>
+          <div class="hs-val mut" id="dec-win">measuring…</div><div class="hs-sub" id="dec-winsub">price went our way</div></div>
         <div class="hero-stat"><div class="hs-lab">Target hit</div>
-          <div class="hs-val" id="dec-hit">—</div><div class="hs-sub">reached take-profit</div></div>
+          <div class="hs-val mut" id="dec-hit">—</div><div class="hs-sub">reached take-profit</div></div>
         <div class="hero-stat"><div class="hs-lab">When confident (5-6/6)</div>
           <div class="hs-val up" id="dec-hiwin">—</div><div class="hs-sub">high-conviction win rate</div></div>
-        <div class="hero-stat"><div class="hs-lab">Calls tracked</div>
-          <div class="hs-val" id="dec-total">—</div><div class="hs-sub" id="dec-open">— still open</div></div>
+        <div class="hero-stat"><div class="hs-lab">Live now</div>
+          <div class="hs-val" id="dec-opennow">—</div><div class="hs-sub" id="dec-resolved">watching · resolved</div></div>
       </div>
     </div>
 
-    <!-- ===== WHAT THE TOOL LEARNED (weights) + CONFIDENCE ===== -->
+    <!-- METHODOLOGY -->
+    <div class="method">
+      <div class="mcard"><span class="mn">1</span>
+        <h4>Record the call</h4>
+        <p>The instant the read fires — direction, entry, stop and target — it's frozen in
+          a log, timestamped. It can never be edited or re-scored afterwards.</p></div>
+      <div class="mcard"><span class="mn">2</span>
+        <h4>Watch real price</h4>
+        <p>Every few minutes a monitor checks each open call against live Binance price
+          across all 8 coins and 5 timeframes — did it reach target, or hit stop?</p></div>
+      <div class="mcard"><span class="mn">3</span>
+        <h4>Freeze the outcome</h4>
+        <p>Win, loss, or drift — settled and locked in. The tool then re-weights the
+          indicators that were right, and the numbers below improve on their own.</p></div>
+    </div>
+
+    <!-- LIVE OPEN CALLS -->
+    <div class="rp-card">
+      <div class="rp-head"><h2>Being watched right now</h2>
+        <span class="win-badge" id="open-badge">—</span></div>
+      <p class="sub">Live calls in flight — recorded and waiting on real price to reach
+        target or stop. These are the trades the scorecard is measuring, as they happen.</p>
+      <div class="tbl-scroll">
+        <table class="rp-tbl">
+          <thead><tr><th>Coin</th><th>TF</th><th>Call</th><th>Conf.</th>
+            <th>Entry</th><th>Target</th><th>Stop</th><th>Opened</th></tr></thead>
+          <tbody id="open-rows"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- WEIGHTS + CONFIDENCE -->
     <div class="cols">
       <div class="rp-card">
         <div class="rp-head"><h2>What the tool has learned</h2></div>
-        <p class="sub">Each indicator's real hit rate over the window — and how much
-          the read now trusts it. Proven signals get more vote weight; coin-flip ones
-          fade. This updates automatically.</p>
+        <p class="sub">Each indicator's real hit rate on settled calls — and how much the
+          read now trusts it. Proven signals get more vote weight; coin-flip ones fade.
+          Updates automatically as calls resolve.</p>
         <div id="dec-weights"></div>
       </div>
       <div class="rp-card">
         <div class="rp-head"><h2>Does confidence pay?</h2></div>
-        <p class="sub">Win rate grouped by how many indicators agreed. More agreement
-          should mean a better call — this proves whether it does.</p>
+        <p class="sub">Win rate grouped by how many indicators agreed. More agreement should
+          mean a better call — this proves whether it does.</p>
         <div class="tbl-scroll">
           <table class="rp-tbl">
-            <thead><tr><th>Confidence</th><th>Calls</th><th>Win rate</th>
-              <th>Target hit</th><th>Net R</th></tr></thead>
+            <thead><tr><th>Confidence</th><th>Calls</th><th>Win rate</th><th>Target hit</th><th>Net R</th></tr></thead>
             <tbody id="dec-conv"></tbody>
           </table>
         </div>
       </div>
     </div>
 
-    <!-- ===== BY TIMEFRAME + BY COIN ===== -->
+    <!-- BY TF + BY COIN -->
     <div class="cols">
       <div class="rp-card">
         <div class="rp-head"><h2>By timeframe</h2></div>
@@ -145,7 +176,7 @@
       </div>
       <div class="rp-card">
         <div class="rp-head"><h2>By coin</h2></div>
-        <p class="sub">Where the read has been sharpest lately.</p>
+        <p class="sub">Where the read has been sharpest.</p>
         <div class="tbl-scroll">
           <table class="rp-tbl">
             <thead><tr><th>Coin</th><th>Calls</th><th>Win rate</th><th>Target hit</th><th>Net R</th></tr></thead>
@@ -155,7 +186,7 @@
       </div>
     </div>
 
-    <!-- ===== RECENT RESOLVED CALLS ===== -->
+    <!-- RECENT RESOLVED -->
     <div class="rp-card">
       <div class="rp-head"><h2>Recent resolved calls</h2>
         <span class="win-badge" id="dec-badge">—</span></div>
@@ -169,7 +200,7 @@
       </div>
     </div>
 
-    <!-- ===== OPPORTUNITY SCANNER (act-now companion, live) ===== -->
+    <!-- SCANNER -->
     <div class="rp-card" id="sig-card">
       <div class="rp-head">
         <h2>Opportunity scanner</h2>

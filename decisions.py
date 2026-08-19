@@ -160,7 +160,23 @@ def _conn():
             c.execute(f"ALTER TABLE decisions ADD COLUMN {col} {decl}")
         except sqlite3.OperationalError:
             pass
+    c.execute("CREATE TABLE IF NOT EXISTS meta (k TEXT PRIMARY KEY, v TEXT)")
     return c
+
+
+def _get_meta(conn, key, default=None):
+    r = conn.execute("SELECT v FROM meta WHERE k=?", (key,)).fetchone()
+    return r["v"] if r else default
+
+
+def _set_meta(conn, key, val):
+    conn.execute("INSERT OR REPLACE INTO meta (k, v) VALUES (?, ?)", (key, str(val)))
+
+
+def tracking_since():
+    with _LOCK, _conn() as conn:
+        v = _get_meta(conn, "tracking_since")
+    return int(v) if v else None
 
 
 # ---------------------------------------------------------------- recording ---
@@ -295,11 +311,11 @@ def _bar_indices_for_seed(n, tf):
     return list(range(start, n - 1, step))
 
 
-def tick_symbol(symbol, frame_fn, seed=False):
-    """Generate + record decisions for one symbol across all timeframes, then
-    resolve its open decisions against real price. The heavy work (loading
-    frames, computing indicators) is done OUTSIDE the DB lock so readers of the
-    scorecard are never blocked; only the fast INSERT/UPDATE section is locked."""
+def tick_symbol(symbol, frame_fn, since=None):
+    """Generate + record decisions for one symbol across all timeframes (only for
+    bars that closed at/after `since`), then resolve open decisions against real
+    price. Heavy work is done OUTSIDE the DB lock so scorecard readers never
+    block; only the fast INSERT/UPDATE section is locked."""
     # ---- heavy compute, no lock ----
     rows_to_insert = []
     widest = None
@@ -312,14 +328,15 @@ def tick_symbol(symbol, frame_fn, seed=False):
             if len(c) < 210:
                 continue
             w = get_weights(tf)
-            if seed:
-                idxs = _bar_indices_for_seed(len(c), tf)
-            else:
-                # capture every closed bar since the last ~2 monitor ticks
-                # (dedup makes overlaps free); 5m needs ~14 bars per hour
-                k = min(24, max(1, (2 * 1800) // (tf * 60) + 2))
-                idxs = list(range(max(210, len(c) - 1 - k), len(c) - 1))
+            # capture every closed bar since the last ~2 monitor ticks (dedup
+            # makes overlaps free), but NEVER a bar that closed before we started
+            # tracking — this is a live test, we do not backfill history.
+            k = min(24, max(1, (2 * 1800) // (tf * 60) + 2))
+            idxs = list(range(max(210, len(c) - 1 - k), len(c) - 1))
             for i in idxs:
+                bar_ts = int(c.index[i].timestamp())
+                if since and bar_ts < since:
+                    continue
                 d = SP.decision_at(c, ind, L, S, i, tf, weights=w)
                 row = _row_from_decision(symbol, d)
                 if row:
@@ -354,8 +371,9 @@ def prune_old():
         conn.commit()
 
 
-def tick_all(frame_fn, seed=False, symbols=None):
-    res = [tick_symbol(s, frame_fn, seed=seed) for s in (symbols or SYMBOLS)]
+def tick_all(frame_fn, symbols=None):
+    since = tracking_since()
+    res = [tick_symbol(s, frame_fn, since=since) for s in (symbols or SYMBOLS)]
     try:
         compute_weights()      # learn which indicators are predicting, feed back
         prune_old()
@@ -369,27 +387,16 @@ def _default_frame_fn(symbol, days):
     return LD.load_recent_archive(symbol, days)
 
 
-def ensure_seeded(frame_fn=None):
-    """First run: seed the last 5 days equal-weighted to learn each indicator's
-    hit rate, recompute the weights, then RE-seed weighted so the scorecard
-    reflects the self-improved read from the start."""
-    frame_fn = frame_fn or _default_frame_fn
+def ensure_started(frame_fn=None):
+    """Stamp the moment we start measuring. NO backfill — this is a genuine live
+    test that begins now and grows forward. Returns True if this is the first
+    start."""
     with _LOCK, _conn() as conn:
-        n = conn.execute("SELECT COUNT(*) FROM decisions").fetchone()[0]
-    if n > 0:
-        return False
-    # pass 1 — equal weights, just to measure per-indicator accuracy
-    for s in SYMBOLS:
-        tick_symbol(s, frame_fn, seed=True)
-    compute_weights()
-    # pass 2 — wipe and re-seed using the learned weights
-    with _LOCK, _conn() as conn:
-        conn.execute("DELETE FROM decisions")
+        v = _get_meta(conn, "tracking_since")
+        if v:
+            return False
+        _set_meta(conn, "tracking_since", int(time.time()))
         conn.commit()
-    for s in SYMBOLS:
-        tick_symbol(s, frame_fn, seed=True)
-    compute_weights()
-    prune_old()
     return True
 
 
@@ -485,6 +492,16 @@ def read(symbols=None, tfs=None):
         "passed": r["passed"], "total_checks": r["total_checks"],
     } for r in resolved[:60]]
 
+    # calls being watched RIGHT NOW — real live activity, shown from minute one
+    opens = [r for r in rows if r["status"] == "open"]
+    opens.sort(key=lambda r: r["opened_at"], reverse=True)
+    open_calls = [{
+        "symbol": r["symbol"], "tf": r["tf"], "bias": r["bias"],
+        "entry": r["entry"], "stop": r["stop"], "target": r["target"],
+        "opened_at": r["opened_at"], "horizon_ts": r["horizon_ts"],
+        "passed": r["passed"], "total_checks": r["total_checks"],
+    } for r in opens[:40]]
+
     # the learned weights, as a ranked list for display (which indicators the
     # tool has learned to trust)
     acc = indicator_accuracy(None)
@@ -503,12 +520,14 @@ def read(symbols=None, tfs=None):
         "by_conviction": by_conviction,
         "weights": weights,
         "window_days": WINDOW_DAYS,
+        "tracking_since": tracking_since(),
+        "open_calls": open_calls,
         "recent": recent,
         "generated_at": int(time.time()),
     }
 
 
 if __name__ == "__main__":
-    print("seeding…", ensure_seeded())
-    import json
-    print(json.dumps(read()["overall"], indent=2))
+    print("started fresh:", ensure_started())
+    tick_all(_default_frame_fn)
+    print(_json.dumps(read()["overall"], indent=2))

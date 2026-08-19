@@ -810,15 +810,17 @@ def _decision_monitor():
     import decisions as DEC
 
     try:
-        DEC.ensure_seeded(lambda s, d: _market_frame(s, d))
+        DEC.ensure_started()          # stamp the start; NO historical backfill
     except Exception:
         pass
+    # first pass soon after boot, then every ~8 min so intraday calls (5m/15m)
+    # are captured and resolved promptly
     while True:
         try:
             DEC.tick_all(lambda s, d: _market_frame(s, d))
         except Exception:
             pass
-        time.sleep(1800)
+        time.sleep(480)
 
 
 @app.get("/api/decisions")

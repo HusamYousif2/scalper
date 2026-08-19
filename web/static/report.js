@@ -16,6 +16,21 @@ function clock() {
   const n = new Date();
   return `${String(n.getHours()).padStart(2, "0")}:${String(n.getMinutes()).padStart(2, "0")}`;
 }
+function ago(ts) {
+  if (!ts) return "—";
+  const s = Math.max(0, Math.floor(Date.now() / 1000 - ts));
+  if (s < 90) return `${s}s ago`;
+  if (s < 5400) return `${Math.round(s / 60)}m ago`;
+  if (s < 172800) return `${Math.round(s / 3600)}h ago`;
+  return `${Math.round(s / 86400)}d ago`;
+}
+function since(ts) {
+  if (!ts) return "just now";
+  const d = new Date(ts * 1000);
+  const p = (n) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`;
+}
+const MEASURE_MIN = 12;   // need this many settled calls before headlining a rate
 
 /* ================= LIVE DECISION SCORECARD ================= */
 
@@ -39,37 +54,67 @@ function accClass(a) { return a == null ? "bad" : a >= 57 ? "good" : a >= 52.5 ?
 function renderDecisions(d) {
   const o = d.overall || {};
   const resolved = o.resolved || 0;
+  const measuring = resolved < MEASURE_MIN;
   const good = o.win_rate >= 50;
 
-  if (d.window_days) $("hero-window").textContent = d.window_days;
   $("dec-updated").textContent = `live · updated ${clock()}`;
+  $("hero-eyebrow").textContent = d.tracking_since
+    ? `Real forward test · measuring live since ${since(d.tracking_since)}`
+    : "Real forward test · measuring live";
 
-  // hero
+  // hero — headline rate only once we have enough settled calls
   const win = $("dec-win");
-  win.textContent = resolved ? `${o.win_rate}%` : "—";
-  win.className = `hs-val ${good ? "up" : "down"}`;
-  $("dec-winsub").textContent = resolved ? `${o.wins} of ${resolved} calls` : "price went our way";
+  if (measuring) {
+    win.textContent = resolved ? `${o.win_rate}%*` : "measuring…";
+    win.className = `hs-val ${resolved ? (good ? "up" : "down") : "mut"}`;
+    $("dec-winsub").textContent = resolved
+      ? `${o.wins}/${resolved} so far — needs ${MEASURE_MIN}+`
+      : "first calls settling now";
+  } else {
+    win.textContent = `${o.win_rate}%`;
+    win.className = `hs-val ${good ? "up" : "down"}`;
+    $("dec-winsub").textContent = `${o.wins} of ${resolved} calls`;
+  }
   $("dec-hit").textContent = resolved ? `${o.target_hit_rate}%` : "—";
-  $("dec-total").textContent = o.decisions || 0;
-  $("dec-open").textContent = `${o.open || 0} still open`;
-
   const hi = (d.by_conviction || []).find((b) => b.min === 5);
-  $("dec-hiwin").textContent = hi && hi.resolved ? `${hi.win_rate}%` : "—";
+  const hiEl = $("dec-hiwin");
+  hiEl.textContent = hi && hi.resolved ? `${hi.win_rate}%` : "—";
+  hiEl.className = `hs-val ${hi && hi.resolved ? "up" : "mut"}`;
+  $("dec-opennow").textContent = o.open || 0;
+  $("dec-resolved").textContent = `watching now · ${resolved} settled`;
 
   // recent-card badge
   const wb = $("dec-badge");
   if (!resolved) { wb.textContent = "warming up…"; wb.className = "win-badge"; }
-  else { wb.textContent = `net ${fmtR(o.net_r)} · ${resolved} resolved`;
+  else { wb.textContent = `net ${fmtR(o.net_r)} · ${resolved} settled`;
          wb.className = `win-badge ${o.net_r >= 0 ? "good" : "bad"}`; }
+
+  // live open calls
+  const ob = $("open-badge");
+  const opens = d.open_calls || [];
+  ob.textContent = opens.length ? `${opens.length} in flight` : "none open yet";
+  ob.className = `win-badge ${opens.length ? "good" : ""}`;
+  $("open-rows").innerHTML = opens.length ? opens.map((r) =>
+    `<tr>
+       <td><b>${COIN(r.symbol)}</b></td><td>${tfLabel(r.tf)}</td>
+       <td class="${r.bias === "long" ? "up" : "down"}">${r.bias === "long" ? "▲ LONG" : "▼ SHORT"}</td>
+       <td>${r.passed}/${r.total_checks}</td>
+       <td>${fmtPx(r.entry)}</td><td class="up">${fmtPx(r.target)}</td><td class="down">${fmtPx(r.stop)}</td>
+       <td class="muted">${ago(r.opened_at)}</td>
+     </tr>`).join("")
+    : `<tr><td colspan="8"><div class="empty-note">No open calls yet — the moment a read
+        fires on any coin/timeframe it appears here and the clock starts. First calls
+        typically settle within the hour.</div></td></tr>`;
 
   // learned weights
   const wrap = $("dec-weights");
-  const ws = d.weights || [];
-  if (!ws.length) { wrap.innerHTML = `<div class="muted" style="padding:8px 0">learning…</div>`; }
-  else {
+  const ws = (d.weights || []).filter((w) => w.accuracy != null);
+  if (!ws.length) {
+    wrap.innerHTML = `<div class="empty-note">Calibrating — the tool needs a batch of
+      settled calls before it can measure each indicator and re-weight its vote.</div>`;
+  } else {
     wrap.innerHTML = ws.map((w) => {
-      const acc = w.accuracy;
-      const cls = accClass(acc);
+      const acc = w.accuracy, cls = accClass(acc);
       const pct = acc == null ? 0 : Math.max(4, Math.min(100, (acc - 45) / 20 * 100));
       return `<div class="wt-row">
         <div>
@@ -77,7 +122,7 @@ function renderDecisions(d) {
           <div class="wt-bar"><span class="wt-fill ${cls}" style="width:${pct}%"></span></div>
           <div class="wt-meta">weight ${Number(w.weight).toFixed(2)} · ${w.n || 0} calls scored</div>
         </div>
-        <div class="wt-acc ${cls}">${acc == null ? "—" : acc + "%"}</div>
+        <div class="wt-acc ${cls}">${acc + "%"}</div>
       </div>`;
     }).join("");
   }
@@ -115,7 +160,8 @@ function renderDecisions(d) {
       <td><span class="pill ${cls}">${lab}</span></td>
       <td class="${(r.outcome_r || 0) >= 0 ? "up" : "down"}">${fmtR(r.outcome_r || 0)}</td>
     </tr>`;
-  }).join("") || `<tr class="muted"><td colspan="8">warming up…</td></tr>`;
+  }).join("") || `<tr><td colspan="8"><div class="empty-note">Nothing has settled yet.
+      As soon as an open call reaches its target or stop, it lands here — frozen.</div></td></tr>`;
 }
 
 /* ================= OPPORTUNITY SCANNER ================= */
