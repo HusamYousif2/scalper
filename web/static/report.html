@@ -79,6 +79,58 @@
       </div>
     </div>
 
+    <!-- ===== LIVE DECISION SCORECARD (tracks real outcomes of the AI read) ===== -->
+    <div class="rp-card" id="dec-card">
+      <div class="rp-head">
+        <h2>Live decision scorecard</h2>
+        <span class="win-badge" id="dec-badge">—</span>
+        <span class="rp-window" id="dec-updated">all coins · all timeframes</span>
+      </div>
+      <p class="sub" style="margin:-4px 0 14px">Every AI read is recorded the moment
+        it's made, then watched against real price. If it said <b>long</b> and price
+        reached the target — a win; if it hit the stop — a loss. No re-scoring, no
+        look-ahead: this is how the calls actually played out.</p>
+      <div class="rp-tiles">
+        <div class="rp-tile"><div class="t-lab">Win rate</div>
+          <div class="t-val" id="dec-win">—</div><div class="t-sub">price went our way</div></div>
+        <div class="rp-tile"><div class="t-lab">Target hit</div>
+          <div class="t-val" id="dec-hit">—</div><div class="t-sub">reached take-profit</div></div>
+        <div class="rp-tile"><div class="t-lab">Decisions tracked</div>
+          <div class="t-val" id="dec-total">—</div><div class="t-sub" id="dec-open"></div></div>
+        <div class="rp-tile"><div class="t-lab">Net result</div>
+          <div class="t-val" id="dec-net">—</div><div class="t-sub">in R, all resolved</div></div>
+        <div class="rp-tile"><div class="t-lab">Avg per call</div>
+          <div class="t-val" id="dec-avg">—</div><div class="t-sub">expectancy in R</div></div>
+        <div class="rp-tile"><div class="t-lab">Best confidence</div>
+          <div class="t-val" id="dec-hiwin" style="font-size:22px">—</div><div class="t-sub">win% at 5-6/6</div></div>
+      </div>
+      <p class="sub" style="margin:14px 0 6px"><b>Does confidence matter?</b> Win rate by how many
+        indicators agreed:</p>
+      <div class="tbl-scroll">
+        <table class="rp-tbl">
+          <thead><tr><th>Confidence</th><th>Decisions</th><th>Win rate</th>
+            <th>Target hit</th><th>Net R</th><th>Avg R</th></tr></thead>
+          <tbody id="dec-conv"></tbody>
+        </table>
+      </div>
+      <p class="sub" style="margin:14px 0 6px">By timeframe:</p>
+      <div class="tbl-scroll">
+        <table class="rp-tbl">
+          <thead><tr><th>Timeframe</th><th>Decisions</th><th>Win rate</th>
+            <th>Target hit</th><th>Net R</th></tr></thead>
+          <tbody id="dec-tf"></tbody>
+        </table>
+      </div>
+      <p class="sub" style="margin:14px 0 6px">Recent resolved calls:</p>
+      <div class="tbl-scroll">
+        <table class="rp-tbl">
+          <thead><tr><th>Coin</th><th>TF</th><th>Call</th><th>Conf.</th>
+            <th>Outcome</th><th>R</th></tr></thead>
+          <tbody id="dec-recent"></tbody>
+        </table>
+      </div>
+    </div>
+
     <!-- ===== OPPORTUNITY SCANNER (ranked, all coins, auto-refresh) ===== -->
     <div class="rp-card" id="sig-card">
       <div class="rp-head">

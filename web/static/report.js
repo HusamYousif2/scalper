@@ -425,14 +425,83 @@ function reorderForControls() {
   if (nav && h2 && note && status && body) nav.after(h2, note, status, body);
 }
 
+const COIN = (s) => s.replace("USDT", "");
+
+async function loadDecisions() {
+  try {
+    const d = await fetch("/api/decisions").then((r) => {
+      if (!r.ok) throw new Error(r.statusText); return r.json();
+    });
+    renderDecisions(d);
+  } catch (e) {
+    $("dec-badge").textContent = "warming up…";
+  }
+}
+
+function outClass(s) {
+  return s === "win" || s === "expired_win" ? "up"
+       : s === "loss" || s === "expired_loss" ? "down" : "";
+}
+function outLabel(s) {
+  return { win: "TARGET ✓", loss: "STOP ✗", expired_win: "drifted +",
+           expired_loss: "drifted −" }[s] || s;
+}
+
+function renderDecisions(d) {
+  const o = d.overall || {};
+  const resolved = o.resolved || 0;
+  const good = o.win_rate >= 50;
+  const wb = $("dec-badge");
+  if (!resolved) { wb.textContent = "warming up…"; wb.className = "win-badge"; }
+  else { wb.textContent = `${o.win_rate}% win · ${resolved} calls`;
+         wb.className = `win-badge ${good ? "good" : "bad"}`; }
+
+  const win = $("dec-win");
+  win.textContent = resolved ? `${o.win_rate}%` : "—";
+  win.className = `t-val ${good ? "up" : "down"}`;
+  $("dec-hit").textContent = resolved ? `${o.target_hit_rate}%` : "—";
+  $("dec-total").textContent = o.decisions || 0;
+  $("dec-open").textContent = `${o.open || 0} still open`;
+  const net = $("dec-net");
+  net.textContent = resolved ? fmtR(o.net_r) : "—";
+  net.className = `t-val ${o.net_r >= 0 ? "up" : "down"}`;
+  $("dec-avg").textContent = resolved ? fmtR(o.avg_r) : "—";
+
+  // best-confidence headline
+  const hi = (d.by_conviction || []).find((b) => b.min === 5);
+  $("dec-hiwin").textContent = hi && hi.resolved ? `${hi.win_rate}%` : "—";
+
+  const convRows = (d.by_conviction || []).map((b) =>
+    `<tr><td>${b.band}</td><td>${b.resolved}</td>
+       <td>${b.win_rate}%</td><td>${b.target_hit_rate}%</td>
+       <td class="${b.net_r >= 0 ? "up" : "down"}">${fmtR(b.net_r)}</td>
+       <td class="${b.avg_r >= 0 ? "up" : "down"}">${fmtR(b.avg_r)}</td></tr>`).join("");
+  $("dec-conv").innerHTML = convRows || `<tr><td colspan="6" class="muted">warming up…</td></tr>`;
+
+  const tfRows = (d.by_tf || []).filter((t) => t.resolved).map((t) =>
+    `<tr><td>${tfLabel(t.tf)}</td><td>${t.resolved}</td>
+       <td>${t.win_rate}%</td><td>${t.target_hit_rate}%</td>
+       <td class="${t.net_r >= 0 ? "up" : "down"}">${fmtR(t.net_r)}</td></tr>`).join("");
+  $("dec-tf").innerHTML = tfRows || `<tr><td colspan="5" class="muted">warming up…</td></tr>`;
+
+  const recRows = (d.recent || []).slice(0, 25).map((r) =>
+    `<tr><td>${COIN(r.symbol)}</td><td>${tfLabel(r.tf)}</td>
+       <td class="${r.bias === "long" ? "up" : "down"}">${r.bias.toUpperCase()}</td>
+       <td>${r.passed}/${r.total_checks}</td>
+       <td class="${outClass(r.status)}">${outLabel(r.status)}</td>
+       <td class="${(r.outcome_r || 0) >= 0 ? "up" : "down"}">${fmtR(r.outcome_r || 0)}</td></tr>`).join("");
+  $("dec-recent").innerHTML = recRows || `<tr><td colspan="6" class="muted">warming up…</td></tr>`;
+}
+
 (async () => {
   reorderForControls();
   await loadSymbols();
   load();
+  loadDecisions();
   loadSignals();
   loadHF();
   loadPortfolio();
   loadForward();
   setInterval(loadSignals, 60000);                       // scanner every minute
-  setInterval(() => { loadHF(); loadPortfolio(); loadForward(); }, 300000);   // rest every 5 min
+  setInterval(() => { loadHF(); loadPortfolio(); loadForward(); loadDecisions(); }, 300000);
 })();

@@ -229,28 +229,42 @@ def portfolio(tf=240, days=190, symbols=None):
     }
 
 
-def current(symbol, tf, minute_df=None):
-    """The strategy's read on the LAST CLOSED bar (stable through the currently
-    forming bar so the bias doesn't flip every tick). Levels use the live price
-    as the anchor and cap ATR-derived distances at a realistic % move so daily
-    targets stop looking like fantasy."""
-    if minute_df is None:
-        minute_df = LD.load_recent_archive(symbol, 40)
+def prepare(minute_df, tf):
+    """Resample to the timeframe and compute indicators + raw signals ONCE.
+    Shared by current() (latest bar) and the decision tracker (every bar), so
+    both read from one honest code path."""
     agg = {"open": "first", "high": "max", "low": "min", "close": "last", "volume": "sum"}
     c = minute_df.resample(f"{tf}min").agg(agg).dropna(subset=["open", "close"])
     ind = PI.compute(c)
     L, S = _signals(c, ind)
+    return c, ind, L, S
 
-    # BIAS with HYSTERESIS: read the last CLOSED bar AND the one before it, and
-    # only accept a direction change if BOTH bars agree (a single wick against
-    # trend can't flip the call). This kills the flip-flop the user was seeing.
+
+def current(symbol, tf, minute_df=None):
+    """The strategy's read on the LAST CLOSED bar (stable through the currently
+    forming bar so the bias doesn't flip every tick)."""
+    if minute_df is None:
+        minute_df = LD.load_recent_archive(symbol, 40)
+    c, ind, L, S = prepare(minute_df, tf)
     close_i = len(c) - 2 if len(c) >= 2 else len(c) - 1
+    live_close = float(c["close"].iloc[-1])
+    d = decision_at(c, ind, L, S, close_i, tf, live_close=live_close)
+    d["symbol"] = symbol
+    return d
+
+
+def decision_at(c, ind, L, S, close_i, tf, live_close=None):
+    """The strategy's full decision anchored at closed-bar index `close_i`.
+    When live_close is None (historical replay) the bar's own close is the
+    anchor; the maths use ONLY data at or before close_i, so replaying past
+    bars is genuinely out-of-sample against later price."""
     prev_i = max(0, close_i - 1)
     row = ind.iloc[close_i]
     prev_row = ind.iloc[prev_i]
     close_bar = float(c["close"].iloc[close_i])
     prev_close = float(c["close"].iloc[prev_i])
-    live_close = float(c["close"].iloc[-1])
+    if live_close is None:
+        live_close = close_bar
     atr = float(row["atr"]) if not np.isnan(row["atr"]) else close_bar * 0.01
 
     # ---- VOTE-BASED bias & confluence ----
@@ -323,16 +337,18 @@ def current(symbol, tf, minute_df=None):
     # price actually reaches (support/resistance), not a raw ATR distance in
     # empty air. Lookback SCALES with the timeframe so 1H and 4H don't land on
     # the same swing (1H sees the last day, 4H sees the last week+, 1D longer).
+    # target = the closer of {2R math, nearest structural swing} — a reachable
+    # level price actually trades to, never past 2R.
     lookback = {5: 24, 15: 20, 60: 24, 240: 30, 1440: 40}.get(tf, 20)
     lookback = min(lookback, len(c) - 1)
     if up:
-        struct_target = float(c["high"].iloc[max(0, close_i - lookback):close_i + 1].max())
+        struct = float(c["high"].iloc[max(0, close_i - lookback):close_i + 1].max())
         math_target = anchor + 2 * risk
-        target = min(math_target, struct_target) if struct_target > anchor else math_target
+        target = min(math_target, struct) if struct > anchor else math_target
     else:
-        struct_target = float(c["low"].iloc[max(0, close_i - lookback):close_i + 1].min())
+        struct = float(c["low"].iloc[max(0, close_i - lookback):close_i + 1].min())
         math_target = anchor - 2 * risk
-        target = max(math_target, struct_target) if struct_target < anchor else math_target
+        target = max(math_target, struct) if struct < anchor else math_target
 
     signal_now = bool(L[close_i]) if up else bool(S[close_i])
     close = anchor
@@ -352,7 +368,7 @@ def current(symbol, tf, minute_df=None):
         else "Building" if score >= 50 else "Watch"
 
     return {
-        "symbol": symbol, "tf": tf,
+        "tf": tf,
         "bias": bias,
         "signal_now": signal_now,
         "score": score, "rating": rating,

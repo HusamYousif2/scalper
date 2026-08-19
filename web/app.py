@@ -622,6 +622,12 @@ def api_pro_plan(symbol: str = Query("BTCUSDT"), tf: int = Query(240)):
         except Exception as e:
             raise HTTPException(503, f"{type(e).__name__}: {e}")
         _cache[key] = (time.time(), rep)
+        # log this fresh decision to the live scorecard (deduped by bar)
+        try:
+            import decisions as DEC
+            DEC.record(symbol, rep)
+        except Exception:
+            pass
         return JSONResponse(_clean({**rep, "cached": False}))
 
 
@@ -792,10 +798,47 @@ def _forward_ticker():
         time.sleep(1800)
 
 
+def _decision_monitor():
+    """Seed once, then every 30 min record the latest decision for every
+    symbol/timeframe and resolve any that have played out against real price.
+    This is the live, honest scorecard behind /api/decisions."""
+    import decisions as DEC
+
+    try:
+        DEC.ensure_seeded(lambda s, d: _market_frame(s, d))
+    except Exception:
+        pass
+    while True:
+        try:
+            DEC.tick_all(lambda s, d: _market_frame(s, d))
+        except Exception:
+            pass
+        time.sleep(1800)
+
+
+@app.get("/api/decisions")
+def api_decisions():
+    """Live scorecard: how the AI read's calls actually played out on real price
+    — win rate, target-hit rate, net R, per-timeframe and per-symbol."""
+    import decisions as DEC
+
+    key = ("decisions",)
+    hit = _cache.get(key)
+    if hit and time.time() - hit[0] < 60:
+        return JSONResponse(_clean({**hit[1], "cached": True}))
+    try:
+        rep = DEC.read()
+    except Exception as e:
+        raise HTTPException(503, f"{type(e).__name__}: {e}")
+    _cache[key] = (time.time(), rep)
+    return JSONResponse(_clean(rep))
+
+
 @app.on_event("startup")
 def _start_bg():
     import threading
     threading.Thread(target=_forward_ticker, daemon=True).start()
+    threading.Thread(target=_decision_monitor, daemon=True).start()
 
 
 if __name__ == "__main__":
