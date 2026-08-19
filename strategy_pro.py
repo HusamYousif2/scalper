@@ -240,24 +240,29 @@ def prepare(minute_df, tf):
     return c, ind, L, S
 
 
-def current(symbol, tf, minute_df=None):
+def current(symbol, tf, minute_df=None, weights=None):
     """The strategy's read on the LAST CLOSED bar (stable through the currently
-    forming bar so the bias doesn't flip every tick)."""
+    forming bar so the bias doesn't flip every tick). `weights` (learned by the
+    live scorecard) makes the bias a weighted vote; omitted = equal vote."""
     if minute_df is None:
         minute_df = LD.load_recent_archive(symbol, 40)
     c, ind, L, S = prepare(minute_df, tf)
     close_i = len(c) - 2 if len(c) >= 2 else len(c) - 1
     live_close = float(c["close"].iloc[-1])
-    d = decision_at(c, ind, L, S, close_i, tf, live_close=live_close)
+    d = decision_at(c, ind, L, S, close_i, tf, live_close=live_close, weights=weights)
     d["symbol"] = symbol
     return d
 
 
-def decision_at(c, ind, L, S, close_i, tf, live_close=None):
+def decision_at(c, ind, L, S, close_i, tf, live_close=None, weights=None):
     """The strategy's full decision anchored at closed-bar index `close_i`.
     When live_close is None (historical replay) the bar's own close is the
     anchor; the maths use ONLY data at or before close_i, so replaying past
-    bars is genuinely out-of-sample against later price."""
+    bars is genuinely out-of-sample against later price.
+
+    `weights` (dict {indicator: weight}) makes the bias a WEIGHTED vote — the
+    live scorecard learns which indicators actually predict and feeds their
+    weights back here, so the read self-improves. Absent, it's an equal vote."""
     prev_i = max(0, close_i - 1)
     row = ind.iloc[close_i]
     prev_row = ind.iloc[prev_i]
@@ -287,13 +292,23 @@ def decision_at(c, ind, L, S, close_i, tf, live_close=None):
     # tags AGAINST if volatility contracting = trend fading)
     vol_expanding = (row["cvol"] > 0) or (row["cov"] > 0)
 
-    # tally the FIVE directional votes to pick the majority
-    dir_long = sum([t3_up, rf_up, dmi_up, sq_up, ema200_up])
+    # WEIGHTED directional vote — each indicator pushes +w (long) or -w (short);
+    # weights come from the live scorecard's measured hit rate, so proven
+    # indicators (T3, Squeeze, ADX) outweigh coin-flip ones (EMA200).
+    dir_votes = {"T3 trend": t3_up, "Range Filter": rf_up, "EMA200 macro": ema200_up,
+                 "ADX / DMI": dmi_up, "Momentum (Squeeze)": sq_up}
+    w = weights or {}
+    score = sum((w.get(name, 1.0)) * (1.0 if v else -1.0) for name, v in dir_votes.items())
     prev_up = prev_close > prev_row["t3"]
-    if dir_long >= 3:      bias = "long"
-    elif dir_long <= 2:    bias = "short"
-    else:                  bias = "long" if prev_up else "short"
+    if score > 1e-9:      bias = "long"
+    elif score < -1e-9:   bias = "short"
+    else:                 bias = "long" if prev_up else "short"
     up = bias == "long"
+
+    # weighted confidence: share of vote weight on the winning side (0.5–1.0)
+    tot_w = sum(w.get(name, 1.0) for name in dir_votes) or 1.0
+    win_w = sum(w.get(name, 1.0) for name, v in dir_votes.items() if v == up)
+    weighted_conf = round(win_w / tot_w, 3)
 
     # volatility casts its vote WITH the winning bias if expanding (confirming
     # the trend), AGAINST if contracting (the trend is fading, low conviction)
@@ -386,6 +401,7 @@ def decision_at(c, ind, L, S, close_i, tf, live_close=None):
         "stop_atr": STOP_ATR,
         "adx": round(adx_v, 1),
         "passed": passed, "total_checks": len(checks),
+        "weighted_conf": weighted_conf,
         "checks": checks,
         "as_of": int(c.index[close_i].timestamp()),
     }

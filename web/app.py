@@ -618,13 +618,18 @@ def api_pro_plan(symbol: str = Query("BTCUSDT"), tf: int = Query(240)):
         try:
             # higher timeframes need more history for the 100/200-period studies
             tail = 320 if tf >= 1440 else 60 if tf >= 240 else 40
-            rep = SP.current(symbol, tf, _market_frame(symbol, tail))
+            import decisions as DEC
+            weights = None
+            try:
+                weights = DEC.get_weights(tf)      # learned indicator weights
+            except Exception:
+                weights = None
+            rep = SP.current(symbol, tf, _market_frame(symbol, tail), weights=weights)
         except Exception as e:
             raise HTTPException(503, f"{type(e).__name__}: {e}")
         _cache[key] = (time.time(), rep)
         # log this fresh decision to the live scorecard (deduped by bar)
         try:
-            import decisions as DEC
             DEC.record(symbol, rep)
         except Exception:
             pass
