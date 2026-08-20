@@ -59,8 +59,8 @@ function renderDecisions(d) {
 
   $("dec-updated").textContent = `live · updated ${clock()}`;
   $("hero-eyebrow").textContent = d.tracking_since
-    ? `Real forward test · measuring live since ${since(d.tracking_since)}`
-    : "Real forward test · measuring live";
+    ? `Live · since ${since(d.tracking_since)}`
+    : "Live";
 
   // hero — headline rate only once we have enough settled calls
   const win = $("dec-win");
