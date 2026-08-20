@@ -813,14 +813,14 @@ def _decision_monitor():
         DEC.ensure_started()          # stamp the start; NO historical backfill
     except Exception:
         pass
-    # first pass soon after boot, then every ~8 min so intraday calls (5m/15m)
-    # are captured and resolved promptly
+    # tick every ~3 min so intraday calls resolve promptly and the scorecard
+    # feels alive; the DB dedup makes overlapping bars free
     while True:
         try:
             DEC.tick_all(lambda s, d: _market_frame(s, d))
         except Exception:
             pass
-        time.sleep(480)
+        time.sleep(180)
 
 
 @app.get("/api/decisions")
@@ -831,7 +831,7 @@ def api_decisions():
 
     key = ("decisions",)
     hit = _cache.get(key)
-    if hit and time.time() - hit[0] < 60:
+    if hit and time.time() - hit[0] < 20:
         return JSONResponse(_clean({**hit[1], "cached": True}))
     try:
         rep = DEC.read()

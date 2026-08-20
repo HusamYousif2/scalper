@@ -230,5 +230,5 @@ function renderSignals(rows) {
   loadDecisions();
   loadSignals();
   setInterval(loadSignals, 60000);        // scanner every minute
-  setInterval(loadDecisions, 120000);     // scorecard every 2 min
+  setInterval(loadDecisions, 30000);      // scorecard every 30s
 })();
