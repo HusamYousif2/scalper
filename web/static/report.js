@@ -30,7 +30,9 @@ function since(ts) {
   const p = (n) => String(n).padStart(2, "0");
   return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`;
 }
-const MEASURE_MIN = 12;   // need this many settled calls before headlining a rate
+const MEASURE_MIN = 50;   // don't headline a rate until the sample is big enough
+                          // to be stable — with fewer calls, each new one moves
+                          // the % too much and the number can't be trusted
 
 /* ================= LIVE DECISION SCORECARD ================= */
 
@@ -65,11 +67,11 @@ function renderDecisions(d) {
   // hero — headline rate only once we have enough settled calls
   const win = $("dec-win");
   if (measuring) {
-    win.textContent = resolved ? `${o.win_rate}%*` : "measuring…";
-    win.className = `hs-val ${resolved ? (good ? "up" : "down") : "mut"}`;
+    win.textContent = "measuring…";
+    win.className = "hs-val mut";
     $("dec-winsub").textContent = resolved
-      ? `${o.wins}/${resolved} so far — needs ${MEASURE_MIN}+`
-      : "first calls settling now";
+      ? `${resolved} settled · need ${MEASURE_MIN}+ for stable %`
+      : "first calls settling — check back in a few hours";
   } else {
     win.textContent = `${o.win_rate}%`;
     win.className = `hs-val ${good ? "up" : "down"}`;
@@ -230,5 +232,5 @@ function renderSignals(rows) {
   loadDecisions();
   loadSignals();
   setInterval(loadSignals, 60000);        // scanner every minute
-  setInterval(loadDecisions, 30000);      // scorecard every 30s
+  setInterval(loadDecisions, 300000);     // scorecard every 5 min — stable, not jumpy
 })();
